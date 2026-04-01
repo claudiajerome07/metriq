@@ -45,34 +45,6 @@ app.get('/api/kpis', async (req, res) => {
   }
 });
 
-// --- INTERVENTIONS ---
-app.get('/api/interventions', async (req, res) => {
-  try {
-    const interventions = await Intervention.find().sort({ id: -1 });
-    res.json(interventions);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post('/api/interventions', async (req, res) => {
-  try {
-    const count = await Intervention.countDocuments();
-    const newIntervention = new Intervention({
-      id: count + 1,
-      school: req.body.school,
-      type: req.body.type,
-      date: req.body.date || new Date().toLocaleString('default', { month: 'short', year: 'numeric' }),
-      outcome: req.body.outcome || 'Pending review',
-      status: req.body.status || 'pending'
-    });
-    await newIntervention.save();
-    res.status(201).json(newIntervention);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 // --- ASSESSMENTS (MONTHLY TRACKING) ---
 app.get('/api/assessments', async (req, res) => {
   try {
@@ -168,6 +140,33 @@ app.post('/api/assessments', async (req, res) => {
     );
     
     res.status(201).json({ assessment: newAssessment, updatedRisk: newRisk });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- INTERVENTIONS ---
+app.get('/api/interventions', async (req, res) => {
+  try {
+    const logs = await Intervention.find().sort({ createdAt: -1 });
+    res.json(logs);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/interventions', async (req, res) => {
+  try {
+    const newLog = new Intervention(req.body);
+    await newLog.save();
+    
+    // Increment the intervention count on the school
+    await School.findOneAndUpdate(
+      { id: req.body.schoolId },
+      { $inc: { interventions: 1 } }
+    );
+    
+    res.status(201).json(newLog);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
