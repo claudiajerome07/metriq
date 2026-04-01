@@ -1,0 +1,47 @@
+{
+  "schools": [
+    { "id": 1, "name": "Rajpur Primary School",    "block": "Rajpur",    "risk": "critical",    "reading": 28, "arithmetic": 22, "trend": -8,  "interventions": 0, "students": 142, "standard": "V", "month": "March", "year": 2024 },
+    { "id": 2, "name": "Nawada Govt. School",      "block": "Nawada",    "risk": "critical",    "reading": 31, "arithmetic": 25, "trend": -6,  "interventions": 1, "students": 98,  "standard": "V", "month": "March", "year": 2024 },
+    { "id": 3, "name": "Bodh Gaya Middle School",  "block": "Bodh Gaya", "risk": "at-risk",     "reading": 36, "arithmetic": 30, "trend": -3,  "interventions": 1, "students": 203, "standard": "V", "month": "March", "year": 2024 },
+    { "id": 4, "name": "Gaya Central School",      "block": "Gaya",      "risk": "at-risk",     "reading": 39, "arithmetic": 33, "trend": -2,  "interventions": 2, "students": 317, "standard": "V", "month": "March", "year": 2024 },
+    { "id": 5, "name": "Aurangabad PS",            "block": "Aurangabad","risk": "stagnant",    "reading": 42, "arithmetic": 36, "trend": 0,   "interventions": 2, "students": 176, "standard": "V", "month": "March", "year": 2024 },
+    { "id": 6, "name": "Sherghati Vidyalaya",      "block": "Sherghati", "risk": "stagnant",    "reading": 44, "arithmetic": 38, "trend": 1,   "interventions": 3, "students": 134, "standard": "V", "month": "March", "year": 2024 },
+    { "id": 7, "name": "Imamganj Primary",         "block": "Imamganj",  "risk": "recovering",  "reading": 49, "arithmetic": 43, "trend": 4,   "interventions": 3, "students": 89,  "standard": "V", "month": "March", "year": 2024 },
+    { "id": 8, "name": "Gurua Govt. School",       "block": "Gurua",     "risk": "recovering",  "reading": 52, "arithmetic": 47, "trend": 6,   "interventions": 4, "students": 211, "standard": "V", "month": "March", "year": 2024 }
+  ],
+  "schoolTrends": {
+    "1": [
+      { "year": 2014, "month": "March", "reading": 38, "arithmetic": 32, "standard": "V" },
+      { "year": 2016, "month": "March", "reading": 36, "arithmetic": 30, "standard": "V" },
+      { "year": 2018, "month": "March", "reading": 35, "arithmetic": 29, "standard": "V" },
+      { "year": 2022, "month": "March", "reading": 24, "arithmetic": 18, "standard": "V" },
+      { "year": 2024, "month": "March", "reading": 28, "arithmetic": 22, "standard": "V" }
+    ],
+    "3": [
+      { "year": 2014, "month": "March", "reading": 44, "arithmetic": 38, "standard": "V" },
+      { "year": 2016, "month": "March", "reading": 43, "arithmetic": 37, "standard": "V" },
+      { "year": 2018, "month": "March", "reading": 42, "arithmetic": 36, "standard": "V" },
+      { "year": 2022, "month": "March", "reading": 33, "arithmetic": 27, "standard": "V" },
+      { "year": 2024, "month": "March", "reading": 36, "arithmetic": 30, "standard": "V" }
+    ]
+  },
+  "districtTrend": [
+    { "year": "2014", "month": "March", "reading": 38, "arithmetic": 32, "district": "Gaya" },
+    { "year": "2016", "month": "March", "reading": 37, "arithmetic": 31, "district": "Gaya" },
+    { "year": "2018", "month": "March", "reading": 39, "arithmetic": 33, "district": "Gaya" },
+    { "year": "2022", "month": "March", "reading": 31, "arithmetic": 26, "district": "Gaya" },
+    { "year": "2024", "month": "March", "reading": 36, "arithmetic": 30, "district": "Gaya" }
+  ],
+  "interventionsLog": [
+    { "id": 1, "school": "Imamganj Primary",    "type": "Teacher Deployment", "date": "Jan 2024", "outcome": "Reading +4%", "status": "success" },
+    { "id": 2, "school": "Gurua Govt. School",  "type": "Resource Kit",       "date": "Dec 2023", "outcome": "Arithmetic +6%", "status": "success" },
+    { "id": 3, "school": "Gaya Central School", "type": "School Visit",       "date": "Feb 2024", "outcome": "Pending review", "status": "pending" },
+    { "id": 4, "school": "Bodh Gaya Middle",    "type": "Teacher Training",   "date": "Mar 2024", "outcome": "No change yet", "status": "pending" }
+  ],
+  "districtKpis": {
+    "readingAvg": 36,
+    "arithmeticAvg": 30,
+    "recoveryRate": "+5pp",
+    "name": "Gaya District"
+  }
+}

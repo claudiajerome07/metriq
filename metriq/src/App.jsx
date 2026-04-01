@@ -1,4 +1,8 @@
 import React, { useState } from 'react';
+import { useAsyncData } from './hooks/useAsyncData';
+import { fetchSchools, fetchDistrictTrend, fetchSchoolTrend, fetchInterventions, fetchDistrictKpis } from './data/api';
+import { LoadingSpinner } from './components/LoadingSpinner';
+import { ErrorBanner } from './components/ErrorBanner';
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend, RadarChart, Radar,
@@ -27,50 +31,6 @@ const S = {
   mono: "'DM Mono', monospace",
   display: "'Fraunces', serif",
 };
-
-// ─── DATA ─────────────────────────────────────────────────────────────────────
-const SCHOOLS = [
-  { id: 1, name: 'Rajpur Primary School',    block: 'Rajpur',    risk: 'critical',    reading: 28, arithmetic: 22, trend: -8,  interventions: 0, students: 142 },
-  { id: 2, name: 'Nawada Govt. School',      block: 'Nawada',    risk: 'critical',    reading: 31, arithmetic: 25, trend: -6,  interventions: 1, students: 98  },
-  { id: 3, name: 'Bodh Gaya Middle School',  block: 'Bodh Gaya', risk: 'at-risk',     reading: 36, arithmetic: 30, trend: -3,  interventions: 1, students: 203 },
-  { id: 4, name: 'Gaya Central School',      block: 'Gaya',      risk: 'at-risk',     reading: 39, arithmetic: 33, trend: -2,  interventions: 2, students: 317 },
-  { id: 5, name: 'Aurangabad PS',            block: 'Aurangabad',risk: 'stagnant',    reading: 42, arithmetic: 36, trend: 0,   interventions: 2, students: 176 },
-  { id: 6, name: 'Sherghati Vidyalaya',      block: 'Sherghati', risk: 'stagnant',    reading: 44, arithmetic: 38, trend: 1,   interventions: 3, students: 134 },
-  { id: 7, name: 'Imamganj Primary',         block: 'Imamganj',  risk: 'recovering',  reading: 49, arithmetic: 43, trend: 4,   interventions: 3, students: 89  },
-  { id: 8, name: 'Gurua Govt. School',       block: 'Gurua',     risk: 'recovering',  reading: 52, arithmetic: 47, trend: 6,   interventions: 4, students: 211 },
-];
-
-const SCHOOL_TREND = {
-  1: [
-    { year: '2014', reading: 38, arithmetic: 32 },
-    { year: '2016', reading: 36, arithmetic: 30 },
-    { year: '2018', reading: 35, arithmetic: 29 },
-    { year: '2022', reading: 24, arithmetic: 18 },
-    { year: '2024', reading: 28, arithmetic: 22 },
-  ],
-  3: [
-    { year: '2014', reading: 44, arithmetic: 38 },
-    { year: '2016', reading: 43, arithmetic: 37 },
-    { year: '2018', reading: 42, arithmetic: 36 },
-    { year: '2022', reading: 33, arithmetic: 27 },
-    { year: '2024', reading: 36, arithmetic: 30 },
-  ],
-};
-
-const DISTRICT_TREND = [
-  { year: '2014', reading: 38, arithmetic: 32, district: 'Gaya' },
-  { year: '2016', reading: 37, arithmetic: 31, district: 'Gaya' },
-  { year: '2018', reading: 39, arithmetic: 33, district: 'Gaya' },
-  { year: '2022', reading: 31, arithmetic: 26, district: 'Gaya' },
-  { year: '2024', reading: 36, arithmetic: 30, district: 'Gaya' },
-];
-
-const INTERVENTIONS_LOG = [
-  { id: 1, school: 'Imamganj Primary',    type: 'Teacher Deployment', date: 'Jan 2024', outcome: 'Reading +4%', status: 'success' },
-  { id: 2, school: 'Gurua Govt. School',  type: 'Resource Kit',       date: 'Dec 2023', outcome: 'Arithmetic +6%', status: 'success' },
-  { id: 3, school: 'Gaya Central School', type: 'School Visit',       date: 'Feb 2024', outcome: 'Pending review', status: 'pending' },
-  { id: 4, school: 'Bodh Gaya Middle',    type: 'Teacher Training',   date: 'Mar 2024', outcome: 'No change yet', status: 'pending' },
-];
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 const riskColor = (r) => ({ critical: C.red, 'at-risk': C.yellow, stagnant: C.muted, recovering: C.green }[r] || C.muted);
@@ -249,9 +209,16 @@ const LoginScreen = ({ onLogin }) => {
 
 // ─── SCREEN 2: DISTRICT OVERVIEW ──────────────────────────────────────────────
 const OverviewScreen = ({ setPage, setSelectedSchool }) => {
-  const critical  = SCHOOLS.filter(s => s.risk === 'critical').length;
-  const atRisk    = SCHOOLS.filter(s => s.risk === 'at-risk').length;
-  const recovering= SCHOOLS.filter(s => s.risk === 'recovering').length;
+  const { data: schools, loading: sLoading, error: sError, refetch: refetchSchools } = useAsyncData(fetchSchools);
+  const { data: trend, loading: tLoading, error: tError, refetch: refetchTrend } = useAsyncData(fetchDistrictTrend);
+  const { data: kpi, loading: kLoading, error: kError, refetch: refetchKpi } = useAsyncData(fetchDistrictKpis);
+
+  if (sLoading || tLoading || kLoading) return <div style={{ padding: 32 }}><LoadingSpinner text="Crunching district data..." /></div>;
+  if (sError || tError || kError) return <div style={{ padding: 32 }}><ErrorBanner error={sError || tError || kError} onRetry={() => { refetchSchools(); refetchTrend(); refetchKpi(); }} /></div>;
+
+  const critical  = schools.filter(s => s.risk === 'critical').length;
+  const atRisk    = schools.filter(s => s.risk === 'at-risk').length;
+  const recovering= schools.filter(s => s.risk === 'recovering').length;
 
   return (
     <div style={{ padding: 32, fontFamily: S.font, color: C.text }}>
@@ -262,10 +229,10 @@ const OverviewScreen = ({ setPage, setSelectedSchool }) => {
 
       {/* KPI Row */}
       <div style={{ display: 'flex', gap: 16, marginBottom: 24 }}>
-        <KpiCard label="Std V Reading (District)" value="36%" sub="↑ from 31% in 2022, still below 2018 baseline" color={C.yellow} />
-        <KpiCard label="Std V Arithmetic" value="30%" sub="Consistently lower than reading every year" color={C.red} />
+        <KpiCard label="Std V Reading (District)" value={`${kpi.readingAvg}%`} sub="↑ from 31% in 2022, still below 2018 baseline" color={C.yellow} />
+        <KpiCard label="Std V Arithmetic" value={`${kpi.arithmeticAvg}%`} sub="Consistently lower than reading every year" color={C.red} />
         <KpiCard label="Schools in Crisis" value={critical} sub={`${atRisk} more at risk · ${recovering} recovering`} color={C.red} />
-        <KpiCard label="Recovery Rate" value="+5pp" sub="Post-COVID recovery since 2022 low of 31%" color={C.green} />
+        <KpiCard label="Recovery Rate" value={kpi.recoveryRate} sub="Post-COVID recovery since 2022 low of 31%" color={C.green} />
       </div>
 
       {/* Charts row */}
@@ -274,7 +241,7 @@ const OverviewScreen = ({ setPage, setSelectedSchool }) => {
           <div style={{ fontWeight: 600, marginBottom: 4 }}>District Learning Trend (2014–2024)</div>
           <div style={{ color: C.muted, fontSize: 12, marginBottom: 20 }}>COVID dip in 2022 — recovery incomplete</div>
           <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={DISTRICT_TREND}>
+            <LineChart data={trend}>
               <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
               <XAxis dataKey="year" stroke={C.muted} tick={{ fill: C.muted, fontSize: 12 }} />
               <YAxis stroke={C.muted} tick={{ fill: C.muted, fontSize: 12 }} domain={[0, 60]} unit="%" />
@@ -293,7 +260,7 @@ const OverviewScreen = ({ setPage, setSelectedSchool }) => {
             <BarChart data={[
               { status: 'Critical',   count: critical,                              fill: C.red },
               { status: 'At Risk',    count: atRisk,                                fill: C.yellow },
-              { status: 'Stagnant',   count: SCHOOLS.filter(s=>s.risk==='stagnant').length, fill: C.muted },
+              { status: 'Stagnant',   count: schools.filter(s=>s.risk==='stagnant').length, fill: C.muted },
               { status: 'Recovering', count: recovering,                            fill: C.green },
             ]}>
               <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
@@ -338,7 +305,13 @@ const OverviewScreen = ({ setPage, setSelectedSchool }) => {
 };
 
 // ─── SCREEN 3: PRIORITY QUEUE ─────────────────────────────────────────────────
-const PriorityScreen = ({ setPage, setSelectedSchool }) => (
+const PriorityScreen = ({ setPage, setSelectedSchool }) => {
+  const { data: schools, loading, error, refetch } = useAsyncData(fetchSchools);
+
+  if (loading) return <div style={{ padding: 32 }}><LoadingSpinner text="Fetching priority queue..." /></div>;
+  if (error) return <div style={{ padding: 32 }}><ErrorBanner error={error} onRetry={refetch} /></div>;
+
+  return (
   <div style={{ padding: 32, fontFamily: S.font, color: C.text }}>
     <div style={{ marginBottom: 28 }}>
       <div style={{ fontSize: 26, fontWeight: 700, fontFamily: S.display }}>Intervention Priority Queue</div>
@@ -359,7 +332,7 @@ const PriorityScreen = ({ setPage, setSelectedSchool }) => (
 
     {/* School Cards */}
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {SCHOOLS.map((school, i) => (
+      {schools.map((school, i) => (
         <div key={school.id}
           onClick={() => { setSelectedSchool(school); setPage('school-detail'); }}
           style={{
@@ -419,14 +392,15 @@ const PriorityScreen = ({ setPage, setSelectedSchool }) => (
       ))}
     </div>
   </div>
-);
+  );
+};
 
 // ─── SCREEN 4: SCHOOL DETAIL ──────────────────────────────────────────────────
 const SchoolDetailScreen = ({ school, setPage }) => {
-  const trend = SCHOOL_TREND[school.id] || DISTRICT_TREND.map(d => ({
-    ...d, reading: school.reading - 5 + Math.random() * 3,
-    arithmetic: school.arithmetic - 5 + Math.random() * 3,
-  }));
+  const { data: trend, loading, error, refetch } = useAsyncData(() => fetchSchoolTrend(school.id), [school.id]);
+
+  if (loading) return <div style={{ padding: 32 }}><LoadingSpinner text={`Loading profile for ${school.name}...`} /></div>;
+  if (error) return <div style={{ padding: 32 }}><ErrorBanner error={error} onRetry={refetch} /></div>;
 
   const radarData = [
     { subject: 'Reading',    score: school.reading },
@@ -523,7 +497,13 @@ const SchoolDetailScreen = ({ school, setPage }) => {
 };
 
 // ─── SCREEN 5: INTERVENTIONS TRACKER ─────────────────────────────────────────
-const InterventionsScreen = () => (
+const InterventionsScreen = () => {
+  const { data: interventions, loading, error, refetch } = useAsyncData(fetchInterventions);
+
+  if (loading) return <div style={{ padding: 32 }}><LoadingSpinner text="Loading intervention log..." /></div>;
+  if (error) return <div style={{ padding: 32 }}><ErrorBanner error={error} onRetry={refetch} /></div>;
+
+  return (
   <div style={{ padding: 32, fontFamily: S.font, color: C.text }}>
     <div style={{ marginBottom: 28 }}>
       <div style={{ fontSize: 26, fontWeight: 700, fontFamily: S.display }}>Intervention Tracker</div>
@@ -549,7 +529,7 @@ const InterventionsScreen = () => (
           </tr>
         </thead>
         <tbody>
-          {INTERVENTIONS_LOG.map((row, i) => (
+          {interventions.map((row, i) => (
             <tr key={row.id} style={{ borderBottom: `1px solid ${C.border}`, background: i % 2 === 0 ? 'transparent' : C.faint + '55' }}>
               <td style={{ padding: '14px 12px', fontSize: 14, fontWeight: 500 }}>{row.school}</td>
               <td style={{ padding: '14px 12px', color: C.muted, fontSize: 13 }}>{row.type}</td>
@@ -571,7 +551,8 @@ const InterventionsScreen = () => (
       </table>
     </Card>
   </div>
-);
+  );
+};
 
 // ─── LANDING PAGE ─────────────────────────────────────────────────────────────
 const LandingPage = ({ onGetStarted }) => {
