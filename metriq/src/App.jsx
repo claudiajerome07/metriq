@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAsyncData } from './hooks/useAsyncData';
 import { 
   fetchSchools, 
@@ -6,7 +6,8 @@ import {
   fetchDistrictAserTrend, 
   fetchSchoolTrend, 
   fetchInterventions, 
-  fetchDistrictKpis 
+  fetchDistrictKpis,
+  addIntervention
 } from './data/api';
 import { LoadingSpinner } from './components/LoadingSpinner';
 import { ErrorBanner } from './components/ErrorBanner';
@@ -282,8 +283,9 @@ const PriorityScreen = ({ setPage, setSelectedSchool, schools, loading, error, r
 };
 
 // ─── SCHOOL DETAIL SCREEN ─────────────────────────────────────────────────────
-const SchoolDetailScreen = ({ school, setPage, onAssessmentComplete }) => {
+const SchoolDetailScreen = ({ school, schools, setPage, onAssessmentComplete }) => {
   const [isArchiving, setIsArchiving] = useState(false);
+  const [isLogging, setIsLogging] = useState(false);
   const { data: trend, loading, error, refetch: refetchTrend } = useAsyncData(() => fetchSchoolTrend(school.id), [school.id]);
 
   if (loading) return <div style={{ padding: 40 }}><LoadingSpinner text={`Loading ${school.name}...`} /></div>;
@@ -307,6 +309,13 @@ const SchoolDetailScreen = ({ school, setPage, onAssessmentComplete }) => {
 
   return (
     <div style={{ padding: 32, fontFamily: S.font, color: C.text }}>
+      {isLogging && (
+        <InterventionModal 
+          school={school} 
+          onComplete={() => { setIsLogging(false); onAssessmentComplete(); }} 
+          onCancel={() => setIsLogging(false)} 
+        />
+      )}
       <button onClick={() => setPage('priority')} style={{ background: 'transparent', border: `1px solid ${C.border}`, color: C.muted, borderRadius: 8, padding: '6px 14px', fontSize: 13, cursor: 'pointer', marginBottom: 24 }}>← Back to View</button>
       
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 32 }}>
@@ -319,7 +328,7 @@ const SchoolDetailScreen = ({ school, setPage, onAssessmentComplete }) => {
         </div>
         <div style={{ display: 'flex', gap: 12 }}>
           <button onClick={() => setIsArchiving(true)} style={{ background: 'transparent', color: C.accent, border: `1px solid ${C.accent}44`, borderRadius: 8, padding: '10px 20px', fontWeight: 600, cursor: 'pointer' }}>📥 Archive Monthly Data</button>
-          <button style={{ background: C.accent, color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', fontWeight: 600, cursor: 'pointer' }}>+ Log Intervention</button>
+          <button onClick={() => setIsLogging(true)} style={{ background: C.accent, color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', fontWeight: 600, cursor: 'pointer' }}>+ Log Intervention</button>
         </div>
       </div>
 
@@ -373,33 +382,48 @@ const SchoolDetailScreen = ({ school, setPage, onAssessmentComplete }) => {
 };
 
 // ─── INTERVENTIONS LOG SCREEN ─────────────────────────────────────────────────
-const InterventionsScreen = () => {
+const InterventionsScreen = ({ schools }) => {
   const { data: interventions, loading, error, refetch } = useAsyncData(fetchInterventions);
+  const [isLogging, setIsLogging] = useState(false);
 
   if (loading) return <div style={{ padding: 40 }}><LoadingSpinner text="Fetching log..." /></div>;
   if (error) return <div style={{ padding: 40 }}><ErrorBanner error={error} onRetry={refetch} /></div>;
 
   return (
     <div style={{ padding: 32, fontFamily: S.font, color: C.text }}>
-      <div style={{ marginBottom: 28 }}>
-        <div style={{ fontSize: 28, fontWeight: 700, fontFamily: S.display }}>Intervention Action Log</div>
-        <div style={{ color: C.muted, fontSize: 14, marginTop: 4 }}>Track all educational actions taken by District Education Officers across monitored schools.</div>
+      {isLogging && (
+        <InterventionModal 
+          schools={schools} 
+          onComplete={() => { setIsLogging(false); refetch(); }} 
+          onCancel={() => setIsLogging(false)} 
+        />
+      )}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 28 }}>
+        <div>
+          <div style={{ fontSize: 28, fontWeight: 700, fontFamily: S.display }}>Intervention Action Log</div>
+          <div style={{ color: C.muted, fontSize: 14, marginTop: 4 }}>Track all educational actions taken by District Education Officers across monitored schools.</div>
+        </div>
+        <button onClick={() => setIsLogging(true)} style={{ background: C.accent, color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', fontWeight: 600, cursor: 'pointer' }}>+ Log Intervention</button>
       </div>
       <Card style={{ padding: 0 }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
           <thead>
             <tr style={{ background: C.faint }}>
               <th style={{ padding: '16px 24px', color: C.muted, fontSize: 12, fontWeight: 600, letterSpacing: '0.05em' }}>SCHOOL</th>
-              <th style={{ padding: '16px 24px', color: C.muted, fontSize: 12, fontWeight: 600, letterSpacing: '0.05em' }}>INTERVENTION TYPE</th>
-              <th style={{ padding: '16px 24px', color: C.muted, fontSize: 12, fontWeight: 600, letterSpacing: '0.05em' }}>DATE LOGGED</th>
+              <th style={{ padding: '16px 24px', color: C.muted, fontSize: 12, fontWeight: 600, letterSpacing: '0.05em' }}>CLASS</th>
+              <th style={{ padding: '16px 24px', color: C.muted, fontSize: 12, fontWeight: 600, letterSpacing: '0.05em' }}>ISSUE IDENTIFIED</th>
+              <th style={{ padding: '16px 24px', color: C.muted, fontSize: 12, fontWeight: 600, letterSpacing: '0.05em' }}>ACTION TAKEN</th>
+              <th style={{ padding: '16px 24px', color: C.muted, fontSize: 12, fontWeight: 600, letterSpacing: '0.05em' }}>DATE</th>
               <th style={{ padding: '16px 24px', color: C.muted, fontSize: 12, fontWeight: 600, letterSpacing: '0.05em' }}>STATUS</th>
             </tr>
           </thead>
           <tbody>
-            {interventions.map((i, idx) => (
-              <tr key={i.id} style={{ borderBottom: idx === interventions.length - 1 ? 'none' : `1px solid ${C.border}`, transition: 'background 0.1s' }} onMouseEnter={e => e.currentTarget.style.background = C.faint} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+            {[...interventions].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).map((i, idx) => (
+              <tr key={i._id} style={{ borderBottom: idx === interventions.length - 1 ? 'none' : `1px solid ${C.border}`, transition: 'background 0.1s' }} onMouseEnter={e => e.currentTarget.style.background = C.faint} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                 <td style={{ padding: '16px 24px', fontWeight: 600, fontSize: 14 }}>{i.school}</td>
-                <td style={{ padding: '16px 24px', color: C.text, fontSize: 14 }}>{i.type}</td>
+                <td style={{ padding: '16px 24px', color: C.muted, fontSize: 13 }}>{i.classStandard || '—'}</td>
+                <td style={{ padding: '16px 24px', color: C.text, fontSize: 14 }}>{i.issue || i.type || '—'}</td>
+                <td style={{ padding: '16px 24px', color: C.text, fontSize: 14 }}>{i.actionTaken || i.outcome || '—'}</td>
                 <td style={{ padding: '16px 24px', color: C.muted, fontSize: 13, fontFamily: S.mono }}>{i.date}</td>
                 <td style={{ padding: '16px 24px' }}>
                   <span style={{ background: i.status === 'success' ? C.green + '22' : C.yellow + '22', color: i.status === 'success' ? C.green : C.yellow, padding: '4px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700 }}>{i.status.toUpperCase()}</span>
@@ -488,7 +512,117 @@ const LandingPage = ({ onGetStarted }) => {
   );
 };
 
-// ─── MAIN APP COMPONENT ───────────────────────────────────────────────────────
+// ─── INTERVENTION FORM MODAL ──────────────────────────────────────────────────
+const InterventionModal = ({ school, schools, onComplete, onCancel }) => {
+  const [selectedId, setSelectedId] = useState(school ? school.id : '');
+  const [classStd, setClassStd] = useState('Std V');
+  const [issue, setIssue] = useState('');
+  const [action, setAction] = useState('');
+  const [manualAction, setManualAction] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  // Auto-suggestion logic (AI-lite)
+  useEffect(() => {
+    const s = school || schools.find(sch => sch.id === parseInt(selectedId));
+    if (s) {
+      if (s.reading < 35) {
+        setIssue(`Critical Reading Deficit (${s.reading}%)`);
+        setAction('Standard V Reading Intensive Workshop (12-Week)');
+      } else if (s.arithmetic < 30) {
+        setIssue(`Critical Arithmetic Stagnation (${s.arithmetic}%)`);
+        setAction('Math Competency Bootcamp & Teacher Training');
+      } else if (s.risk === 'critical') {
+        setIssue('Generalized Learning Poverty');
+        setAction('DEO Emergency Inspection & Infrastructure Support');
+      } else {
+        setIssue('Marginal Performance Gap');
+        setAction('Bi-Weekly Monitoring & Progress Kits');
+      }
+    }
+  }, [selectedId, school, schools]);
+
+  const handleSave = async () => {
+    const finalAction = manualAction.trim() ? manualAction : action;
+    if (!selectedId || !issue || !finalAction) return alert("Please fill all fields.");
+    setLoading(true);
+    const targetSchool = school || schools.find(sch => sch.id === parseInt(selectedId));
+    try {
+      await addIntervention({
+        schoolId: targetSchool.id,
+        school: targetSchool.name,
+        classStandard: classStd,
+        issue,
+        actionTaken: finalAction,
+        type: issue.toLowerCase().includes('reading') ? 'reading' : 'arithmetic',
+        date: new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
+        status: 'pending'
+      });
+      onComplete();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const inputStyle = { width: '100%', boxSizing: 'border-box', background: C.faint, border: `1px solid ${C.border}`, borderRadius: 10, padding: '12px 16px', color: C.text, fontSize: 14, fontFamily: S.font, outline: 'none', marginBottom: 16 };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <Card style={{ maxWidth: 500, width: '100%', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', overflowY: 'auto', maxHeight: '90vh' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+          <div>
+            <h2 style={{ margin: 0, fontFamily: S.display, fontSize: 24 }}>Log Intervention</h2>
+            <div style={{ color: C.muted, fontSize: 12 }}>Human-AI Hybrid Decision Making</div>
+          </div>
+          <button onClick={onCancel} style={{ background: 'transparent', border: 'none', color: C.muted, fontSize: 20, cursor: 'pointer' }}>×</button>
+        </div>
+
+        {!school && (
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ color: C.muted, fontSize: 11, fontWeight: 700, marginBottom: 6 }}>SCHOOL</div>
+            <select value={selectedId} onChange={e => setSelectedId(e.target.value)} style={inputStyle}>
+              <option value="">Select School...</option>
+              {schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </div>
+        )}
+
+        <div style={{ color: C.muted, fontSize: 11, fontWeight: 700, marginBottom: 6 }}>CLASS / STANDARD</div>
+        <select value={classStd} onChange={e => setClassStd(e.target.value)} style={inputStyle}>
+          {['Std I', 'Std II', 'Std III', 'Std IV', 'Std V', 'Std VI', 'Std VII', 'Std VIII'].map(std => (
+            <option key={std} value={std}>{std}</option>
+          ))}
+        </select>
+
+        <div style={{ background: C.accent + '11', padding: 16, borderRadius: 12, border: `1px solid ${C.accent}33`, marginBottom: 16 }}>
+          <div style={{ color: C.accent, fontSize: 11, fontWeight: 700, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>🤖 AI SUGGESTED DIAGNOSTIC</div>
+          
+          <div style={{ color: C.muted, fontSize: 11, fontWeight: 700, marginBottom: 4 }}>IDENTIFIED ISSUE</div>
+          <div style={{ color: C.text, fontSize: 14, fontWeight: 600, marginBottom: 16 }}>{issue || '—'}</div>
+          
+          <div style={{ color: C.muted, fontSize: 11, fontWeight: 700, marginBottom: 4 }}>RECOMMENDED ACTION</div>
+          <div style={{ color: C.text, fontSize: 14, lineHeight: 1.5 }}>{action || '—'}</div>
+          
+          <button onClick={() => setManualAction(action)} style={{ marginTop: 12, background: 'transparent', color: C.accent, border: `1px solid ${C.accent}66`, borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>Copy to Manual Input ↓</button>
+        </div>
+
+        <div style={{ color: C.muted, fontSize: 11, fontWeight: 700, marginBottom: 6 }}>DEO MANUAL INTERVENTION</div>
+        <textarea 
+          placeholder="Write intervention or copy AI suggestion..." 
+          value={manualAction} 
+          onChange={e => setManualAction(e.target.value)} 
+          style={{ ...inputStyle, background: C.card, minHeight: 80, resize: 'none', marginBottom: 24 }} 
+        />
+
+        <button onClick={handleSave} disabled={loading} style={{ width: '100%', padding: '14px', background: C.accent, color: '#fff', border: 'none', borderRadius: 10, fontSize: 16, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer' }}>
+          {loading ? 'Saving...' : 'Confirm Action Taken →'}
+        </button>
+      </Card>
+    </div>
+  );
+};
+
 export default function App() {
   const [screen, setScreen] = useState('landing');
   const [page, setPage] = useState('overview');
@@ -530,11 +664,12 @@ export default function App() {
       {page === 'school-detail' && selectedSchool && (
         <SchoolDetailScreen 
           school={selectedSchool} 
+          schools={schools}
           setPage={setPage} 
           onAssessmentComplete={refetchSchools} 
         />
       )}
-      {page === 'interventions' && <InterventionsScreen />}
+      {page === 'interventions' && <InterventionsScreen schools={schools} />}
     </div>
   );
 }
