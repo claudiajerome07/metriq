@@ -1,4 +1,3 @@
-// Proxy to Local Node.js Express server
 const BASE_URL = 'http://localhost:8000/api';
 
 export async function fetchSchools() {
@@ -10,6 +9,12 @@ export async function fetchSchools() {
 export async function fetchDistrictTrend() {
   const response = await fetch(`${BASE_URL}/trends/district`);
   if (!response.ok) throw new Error("Failed to fetch district trend");
+  return response.json();
+}
+
+export async function fetchDistrictAserTrend() {
+  const response = await fetch(`${BASE_URL}/trends/aser`);
+  if (!response.ok) throw new Error("Failed to fetch historical ASER trend");
   return response.json();
 }
 
@@ -31,7 +36,6 @@ export async function fetchDistrictKpis() {
   return response.json();
 }
 
-// Optional POST request for actually adding an intervention!
 export async function addIntervention(interventionData) {
   const response = await fetch(`${BASE_URL}/interventions`, {
     method: 'POST',
@@ -39,5 +43,22 @@ export async function addIntervention(interventionData) {
     body: JSON.stringify(interventionData)
   });
   if (!response.ok) throw new Error("Failed to post intervention");
+  return response.json();
+}
+
+// --- NEW ASSESSMENT ENDPOINTS ---
+export async function submitAssessment(assessmentData) {
+  const response = await fetch(`${BASE_URL}/assessments`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(assessmentData)
+  });
+  if (!response.ok) throw new Error("Failed to submit assessment");
+  return response.json();
+}
+
+export async function fetchAllAssessments() {
+  const response = await fetch(`${BASE_URL}/assessments`);
+  if (!response.ok) throw new Error("Failed to fetch all assessments");
   return response.json();
 }

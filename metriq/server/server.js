@@ -1,87 +1,178 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const fs = require('fs');
-const path = require('path');
+const mongoose = require('mongoose');
+
+const School = require('./models/School');
+const Intervention = require('./models/Intervention');
+const Assessment = require('./models/Assessment');
 
 const app = express();
-const PORT = 8000;
-const DATA_FILE = path.join(__dirname, 'data.json');
+const PORT = process.env.PORT || 8000;
 
 app.use(cors());
 app.use(express.json());
 
-// Helper to read data
-const readData = () => {
-  const raw = fs.readFileSync(DATA_FILE);
-  return JSON.parse(raw);
-};
+// Connect to MongoDB
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => console.log('Connected to MongoDB Atlas'))
+  .catch(err => console.error('MongoDB connection error:', err));
 
-// Helper to write data
-const writeData = (data) => {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
-};
-
-// Endpoints
-app.get('/api/schools', (req, res) => {
-  const data = readData();
-  res.json(data.schools);
-});
-
-app.get('/api/kpis', (req, res) => {
-  const data = readData();
-  res.json(data.districtKpis);
-});
-
-app.get('/api/interventions', (req, res) => {
-  const data = readData();
-  res.json(data.interventionsLog);
-});
-
-app.get('/api/trends/district', (req, res) => {
-  const data = readData();
-  res.json(data.districtTrend);
-});
-
-app.get('/api/trends/school/:id', (req, res) => {
-  const data = readData();
-  const schoolId = req.params.id;
-  const trend = data.schoolTrends[schoolId];
-
-  if (trend) {
-    res.json(trend);
-  } else {
-    // Generate fallback trend if not exact match found
-    const school = data.schools.find(s => s.id == schoolId);
-    if (!school) return res.status(404).json({ error: "School not found" });
-
-    const fallbackTrend = data.districtTrend.map(d => ({
-      ...d,
-      reading: Math.max(0, school.reading - 5 + Math.random() * 3),
-      arithmetic: Math.max(0, school.arithmetic - 5 + Math.random() * 3),
-      standard: school.standard
-    }));
-    res.json(fallbackTrend);
+// --- SCHOOLS ---
+app.get('/api/schools', async (req, res) => {
+  try {
+    const schools = await School.find().sort({ id: 1 });
+    res.json(schools);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
-// POST endpoint to add a new intervention
-app.post('/api/interventions', (req, res) => {
-  const data = readData();
-  const newIntervention = {
-    id: data.interventionsLog.length + 1,
-    school: req.body.school || 'Unknown School',
-    type: req.body.type || 'General Intervention',
-    date: req.body.date || new Date().toLocaleString('default', { month: 'short', year: 'numeric' }),
-    outcome: req.body.outcome || 'Pending review',
-    status: req.body.status || 'pending'
-  };
+app.get('/api/kpis', async (req, res) => {
+  try {
+    const schools = await School.find();
+    const readingAvg = Math.round(schools.reduce((acc, s) => acc + s.reading, 0) / schools.length);
+    const arithmeticAvg = Math.round(schools.reduce((acc, s) => acc + s.arithmetic, 0) / schools.length);
+    
+    res.json({
+      readingAvg,
+      arithmeticAvg,
+      recoveryRate: "+5pp",
+      name: "Gaya District"
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
-  data.interventionsLog.push(newIntervention);
-  writeData(data);
-  
-  res.status(201).json(newIntervention);
+// --- INTERVENTIONS ---
+app.get('/api/interventions', async (req, res) => {
+  try {
+    const interventions = await Intervention.find().sort({ id: -1 });
+    res.json(interventions);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/interventions', async (req, res) => {
+  try {
+    const count = await Intervention.countDocuments();
+    const newIntervention = new Intervention({
+      id: count + 1,
+      school: req.body.school,
+      type: req.body.type,
+      date: req.body.date || new Date().toLocaleString('default', { month: 'short', year: 'numeric' }),
+      outcome: req.body.outcome || 'Pending review',
+      status: req.body.status || 'pending'
+    });
+    await newIntervention.save();
+    res.status(201).json(newIntervention);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- ASSESSMENTS (MONTHLY TRACKING) ---
+app.get('/api/assessments', async (req, res) => {
+  try {
+    const assessments = await Assessment.find().sort({ date: -1 });
+    res.json(assessments);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- TRENDS ---
+app.get('/api/trends/aser', async (req, res) => {
+  // Static-esque Historical ASER District Data (2014-2024)
+  const aserData = [
+    { year: 2014, reading: 46.2, arithmetic: 44.1 },
+    { year: 2016, reading: 44.8, arithmetic: 42.5 },
+    { year: 2018, reading: 47.5, arithmetic: 43.8 },
+    { year: 2022, reading: 31.2, arithmetic: 28.5 }, // COVID DIP
+    { year: 2024, reading: 36.5, arithmetic: 33.2 }  // Partial Recovery
+  ];
+  res.json(aserData);
+});
+
+app.get('/api/trends/district', async (req, res) => {
+  // Aggregate monthly assessments into a district-wide trend (2026 Monthly Data)
+  try {
+    const data = await Assessment.aggregate([
+      {
+        $group: {
+          _id: { year: "$year", month: "$month" },
+          reading: { $avg: "$readingScore" },
+          arithmetic: { $avg: "$arithmeticScore" }
+        }
+      },
+      { $sort: { "_id.year": 1, "_id.month": 1 } },
+      {
+        $project: {
+          year: "$_id.year",
+          month: "$_id.month",
+          reading: { $round: ["$reading", 1] },
+          arithmetic: { $round: ["$arithmetic", 1] },
+          _id: 0
+        }
+      }
+    ]);
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/trends/school/:id', async (req, res) => {
+  try {
+    const schoolId = parseInt(req.params.id);
+    const assessments = await Assessment.find({ schoolId }).sort({ year: 1, month: 1 });
+    
+    if (assessments.length > 0) {
+      res.json(assessments);
+    } else {
+      // Fallback to generating some random trend if no data yet (for demo)
+      const school = await School.findOne({ id: schoolId });
+      const fallback = [2014, 2016, 2018, 2022, 2024].map(y => ({
+        year: y,
+        reading: Math.max(0, school.reading - 5 + Math.random() * 3),
+        arithmetic: Math.max(0, school.arithmetic - 5 + Math.random() * 3),
+      }));
+      res.json(fallback);
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/assessments', async (req, res) => {
+  try {
+    const newAssessment = new Assessment(req.body);
+    await newAssessment.save();
+    
+    // Update the school's risk level and current baseline based on this new data
+    const avgScore = (req.body.readingScore + req.body.arithmeticScore) / 2;
+    let newRisk = 'recovering';
+    if (avgScore < 30) newRisk = 'critical';
+    else if (avgScore < 40) newRisk = 'at-risk';
+    else if (avgScore < 55) newRisk = 'stagnant';
+
+    await School.findOneAndUpdate(
+      { id: req.body.schoolId },
+      { 
+        risk: newRisk,
+        reading: req.body.readingScore,
+        arithmetic: req.body.arithmeticScore
+      }
+    );
+    
+    res.status(201).json({ assessment: newAssessment, updatedRisk: newRisk });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.listen(PORT, () => {
-  console.log(`ASER Mock Backend Server running on http://localhost:${PORT}`);
+  console.log(`METRIQ Full-Stack API running on port ${PORT}`);
 });

@@ -1,8 +1,16 @@
 import React, { useState } from 'react';
 import { useAsyncData } from './hooks/useAsyncData';
-import { fetchSchools, fetchDistrictTrend, fetchSchoolTrend, fetchInterventions, fetchDistrictKpis } from './data/api';
+import { 
+  fetchSchools, 
+  fetchDistrictTrend, 
+  fetchDistrictAserTrend, 
+  fetchSchoolTrend, 
+  fetchInterventions, 
+  fetchDistrictKpis 
+} from './data/api';
 import { LoadingSpinner } from './components/LoadingSpinner';
 import { ErrorBanner } from './components/ErrorBanner';
+import { AssessmentModule } from './components/AssessmentModule';
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend, RadarChart, Radar,
@@ -37,11 +45,17 @@ const riskColor = (r) => ({ critical: C.red, 'at-risk': C.yellow, stagnant: C.mu
 const riskLabel = (r) => ({ critical: 'Critical', 'at-risk': 'At Risk', stagnant: 'Stagnant', recovering: 'Recovering' }[r] || r);
 
 // ─── SHARED COMPONENTS ───────────────────────────────────────────────────────
-const Card = ({ children, style = {} }) => (
-  <div style={{
-    background: C.card, border: `1px solid ${C.border}`,
-    borderRadius: 12, padding: 24, ...style
-  }}>
+const Card = ({ children, style = {}, ...props }) => (
+  <div 
+    {...props}
+    style={{
+      background: C.card, 
+      border: `1px solid ${C.border}`,
+      borderRadius: 12, 
+      padding: 24, 
+      ...style
+    }}
+  >
     {children}
   </div>
 );
@@ -78,7 +92,7 @@ const NavBar = ({ page, setPage, setSelectedSchool }) => (
     {[
       { id: 'overview',      label: 'District Overview' },
       { id: 'priority',      label: 'Priority Queue' },
-      { id: 'interventions', label: 'Interventions' },
+      { id: 'interventions', label: 'Interventions Log' },
     ].map(({ id, label }) => (
       <button key={id} onClick={() => { setPage(id); setSelectedSchool(null); }} style={{
         background: page === id ? C.accent + '18' : 'transparent',
@@ -106,742 +120,386 @@ const NavBar = ({ page, setPage, setSelectedSchool }) => (
   </div>
 );
 
-// ─── SCREEN 1: LOGIN ──────────────────────────────────────────────────────────
+// ─── LOGIN SCREEN ─────────────────────────────────────────────────────────────
 const LoginScreen = ({ onLogin }) => {
   const [user, setUser] = useState('');
   const [pass, setPass] = useState('');
   const [loading, setLoading] = useState(false);
-
-  const handleLogin = () => {
-    if (!user || !pass) return;
-    setLoading(true);
-    setTimeout(() => { setLoading(false); onLogin(); }, 1200);
-  };
-
-  const inputStyle = {
-    width: '100%', background: C.faint, border: `1px solid ${C.border}`,
-    borderRadius: 10, padding: '13px 16px', color: C.text,
-    fontSize: 14, fontFamily: S.font, outline: 'none',
-    boxSizing: 'border-box', transition: 'border-color 0.2s',
-  };
-
+  const handleLogin = () => { if (!user || !pass) return; setLoading(true); setTimeout(() => { setLoading(false); onLogin(); }, 800); };
+  const inputStyle = { width: '100%', background: C.faint, border: `1px solid ${C.border}`, borderRadius: 10, padding: '13px 16px', color: C.text, fontSize: 14, fontFamily: S.font, outline: 'none', boxSizing: 'border-box', marginBottom: 16 };
   return (
-    <div style={{
-      minHeight: '100vh', background: C.bg,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontFamily: S.font, position: 'relative', overflow: 'hidden',
-    }}>
-      {/* Background grid */}
-      <div style={{
-        position: 'absolute', inset: 0,
-        backgroundImage: `linear-gradient(${C.border}55 1px, transparent 1px), linear-gradient(90deg, ${C.border}55 1px, transparent 1px)`,
-        backgroundSize: '48px 48px', opacity: 0.4,
-      }} />
-      {/* Glow */}
-      <div style={{
-        position: 'absolute', top: '30%', left: '50%', transform: 'translate(-50%,-50%)',
-        width: 600, height: 600, borderRadius: '50%',
-        background: `radial-gradient(circle, ${C.accent}18 0%, transparent 70%)`,
-        pointerEvents: 'none',
-      }} />
-
-      <div style={{ position: 'relative', width: 420 }}>
-        {/* Logo */}
-        <div style={{ textAlign: 'center', marginBottom: 40 }}>
-          <div style={{ fontFamily: S.display, fontSize: 42, color: C.accent, fontWeight: 900, letterSpacing: '-0.03em' }}>
-            metriq
-          </div>
-          <div style={{ color: C.muted, fontSize: 14, marginTop: 6 }}>
-            District Education Intelligence Platform
-          </div>
+    <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: S.font }}>
+      <Card style={{ width: 400, padding: 40 }}>
+        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+          <div style={{ fontFamily: S.display, fontSize: 36, color: C.accent, fontWeight: 900 }}>metriq</div>
+          <div style={{ color: C.muted, fontSize: 14, marginTop: 4 }}>District Intelligence Portal</div>
         </div>
-
-        <Card style={{ padding: 36 }}>
-          <div style={{ color: C.text, fontSize: 18, fontWeight: 700, marginBottom: 6 }}>Sign in</div>
-          <div style={{ color: C.muted, fontSize: 13, marginBottom: 28 }}>Access your district dashboard</div>
-
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ color: C.muted, fontSize: 12, marginBottom: 8, fontWeight: 500 }}>DISTRICT CODE</div>
-            <input
-              style={inputStyle} placeholder="e.g. BR-GAYA-DEO"
-              value={user} onChange={e => setUser(e.target.value)}
-              onFocus={e => e.target.style.borderColor = C.accent}
-              onBlur={e => e.target.style.borderColor = C.border}
-            />
-          </div>
-          <div style={{ marginBottom: 28 }}>
-            <div style={{ color: C.muted, fontSize: 12, marginBottom: 8, fontWeight: 500 }}>PASSWORD</div>
-            <input
-              style={inputStyle} type="password" placeholder="••••••••"
-              value={pass} onChange={e => setPass(e.target.value)}
-              onFocus={e => e.target.style.borderColor = C.accent}
-              onBlur={e => e.target.style.borderColor = C.border}
-              onKeyDown={e => e.key === 'Enter' && handleLogin()}
-            />
-          </div>
-
-          <button onClick={handleLogin} style={{
-            width: '100%', padding: '14px',
-            background: loading ? C.accentLo : `linear-gradient(135deg, ${C.accent}, ${C.accentLo})`,
-            color: '#fff', border: 'none', borderRadius: 10,
-            fontSize: 15, fontWeight: 600, cursor: 'pointer',
-            fontFamily: S.font, transition: 'opacity 0.2s',
-            opacity: loading ? 0.8 : 1,
-          }}>
-            {loading ? 'Signing in...' : 'Sign in →'}
-          </button>
-
-          <div style={{ marginTop: 20, padding: '12px 16px', background: C.faint, borderRadius: 8 }}>
-            <div style={{ color: C.muted, fontSize: 12 }}>Demo credentials</div>
-            <div style={{ color: C.text, fontSize: 12, fontFamily: S.mono, marginTop: 4 }}>
-              Code: BR-GAYA-DEO &nbsp;|&nbsp; Pass: demo123
-            </div>
-          </div>
-        </Card>
-
-        <div style={{ textAlign: 'center', marginTop: 20, color: C.muted, fontSize: 12 }}>
-          Powered by ASER data · Bihar Education Department
-        </div>
-      </div>
+        <div style={{ color: C.muted, fontSize: 12, marginBottom: 8 }}>DISTRICT CODE</div>
+        <input style={inputStyle} value={user} onChange={e => setUser(e.target.value)} placeholder="e.g. BR-GAYA-DEO" />
+        <div style={{ color: C.muted, fontSize: 12, marginBottom: 8 }}>PASSWORD</div>
+        <input style={inputStyle} type="password" value={pass} onChange={e => setPass(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleLogin()} placeholder="••••••••" />
+        <button onClick={handleLogin} style={{ width: '100%', padding: '14px', background: C.accent, color: '#fff', border: 'none', borderRadius: 10, fontSize: 16, fontWeight: 600, cursor: 'pointer' }}>{loading ? 'Sign in →' : 'Sign in →'}</button>
+        <div style={{ marginTop: 24, fontSize: 12, color: C.muted, textAlign: 'center' }}>Demo: BR-GAYA-DEO | demo123</div>
+      </Card>
     </div>
   );
 };
 
-// ─── SCREEN 2: DISTRICT OVERVIEW ──────────────────────────────────────────────
-const OverviewScreen = ({ setPage, setSelectedSchool }) => {
-  const { data: schools, loading: sLoading, error: sError, refetch: refetchSchools } = useAsyncData(fetchSchools);
-  const { data: trend, loading: tLoading, error: tError, refetch: refetchTrend } = useAsyncData(fetchDistrictTrend);
+// ─── DISTRICT OVERVIEW SCREEN ──────────────────────────────────────────────────
+const OverviewScreen = ({ setPage, setSelectedSchool, schools, loading: sLoading, error: sError, refetchSchools }) => {
+  const { data: monthlyTrend, loading: mLoading, error: mError, refetch: refetchMonthly } = useAsyncData(fetchDistrictTrend);
+  const { data: aserTrend, loading: aLoading, error: aError, refetch: refetchAser } = useAsyncData(fetchDistrictAserTrend);
   const { data: kpi, loading: kLoading, error: kError, refetch: refetchKpi } = useAsyncData(fetchDistrictKpis);
 
-  if (sLoading || tLoading || kLoading) return <div style={{ padding: 32 }}><LoadingSpinner text="Crunching district data..." /></div>;
-  if (sError || tError || kError) return <div style={{ padding: 32 }}><ErrorBanner error={sError || tError || kError} onRetry={() => { refetchSchools(); refetchTrend(); refetchKpi(); }} /></div>;
+  if (sLoading || mLoading || aLoading || kLoading) return <div style={{ padding: 40 }}><LoadingSpinner text="Building district analytics..." /></div>;
+  if (sError || mError || aError || kError) return <div style={{ padding: 40 }}><ErrorBanner error={sError || mError || aError} onRetry={() => { refetchSchools(); refetchMonthly(); refetchAser(); refetchKpi(); }} /></div>;
 
-  const critical  = schools.filter(s => s.risk === 'critical').length;
-  const atRisk    = schools.filter(s => s.risk === 'at-risk').length;
-  const recovering= schools.filter(s => s.risk === 'recovering').length;
+  const critical = schools.filter(s => s.risk === 'critical').length;
+  const atRisk = schools.filter(s => s.risk === 'at-risk').length;
+  const recovering = schools.filter(s => s.risk === 'recovering').length;
 
   return (
     <div style={{ padding: 32, fontFamily: S.font, color: C.text }}>
       <div style={{ marginBottom: 28 }}>
-        <div style={{ fontSize: 26, fontWeight: 700, fontFamily: S.display }}>Gaya District Overview</div>
-        <div style={{ color: C.muted, fontSize: 14, marginTop: 4 }}>Bihar · 8 monitored schools · ASER data 2014–2024</div>
+        <div style={{ fontSize: 28, fontWeight: 700, fontFamily: S.display }}>Gaya District Overview</div>
+        <div style={{ color: C.muted, fontSize: 14, marginTop: 4 }}>Bihar · {schools.length} schools tracked · Data updated April 2026</div>
       </div>
 
-      {/* KPI Row */}
-      <div style={{ display: 'flex', gap: 16, marginBottom: 24 }}>
-        <KpiCard label="Std V Reading (District)" value={`${kpi.readingAvg}%`} sub="↑ from 31% in 2022, still below 2018 baseline" color={C.yellow} />
-        <KpiCard label="Std V Arithmetic" value={`${kpi.arithmeticAvg}%`} sub="Consistently lower than reading every year" color={C.red} />
-        <KpiCard label="Schools in Crisis" value={critical} sub={`${atRisk} more at risk · ${recovering} recovering`} color={C.red} />
-        <KpiCard label="Recovery Rate" value={kpi.recoveryRate} sub="Post-COVID recovery since 2022 low of 31%" color={C.green} />
+      <div style={{ display: 'flex', gap: 16, marginBottom: 28 }}>
+        <KpiCard label="Std V Reading" value={`${kpi.readingAvg}%`} sub="Current District Avg" color={C.yellow} />
+        <KpiCard label="Std V Arithmetic" value={`${kpi.arithmeticAvg}%`} sub="Current District Avg" color={C.red} />
+        <KpiCard label="Crisis Schools" value={critical} sub={`${atRisk} more at risk`} color={C.red} />
+        <KpiCard label="Recovery Rate" value={kpi.recoveryRate} sub="Post-intervention gains" color={C.green} />
       </div>
 
-      {/* Charts row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
         <Card>
-          <div style={{ fontWeight: 600, marginBottom: 4 }}>District Learning Trend (2014–2024)</div>
-          <div style={{ color: C.muted, fontSize: 12, marginBottom: 20 }}>COVID dip in 2022 — recovery incomplete</div>
-          <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={trend}>
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>Historical District Learning Trend (ASER)</div>
+          <div style={{ color: C.muted, fontSize: 12, marginBottom: 20 }}>2014—2024 Year-on-year district baseline</div>
+          <ResponsiveContainer width="100%" height={240}>
+            <LineChart data={aserTrend}>
               <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
               <XAxis dataKey="year" stroke={C.muted} tick={{ fill: C.muted, fontSize: 12 }} />
               <YAxis stroke={C.muted} tick={{ fill: C.muted, fontSize: 12 }} domain={[0, 60]} unit="%" />
               <Tooltip contentStyle={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8 }} />
               <Legend />
-              <Line type="monotone" dataKey="reading" stroke={C.accent} strokeWidth={2.5} dot={{ r: 4 }} name="Reading %" />
-              <Line type="monotone" dataKey="arithmetic" stroke={C.cyan} strokeWidth={2.5} dot={{ r: 4 }} name="Arithmetic %" />
+              <Line type="monotone" dataKey="reading" stroke={C.accent} strokeWidth={3} name="ASER Reading %" dot={{ r: 4 }} />
+              <Line type="monotone" dataKey="arithmetic" stroke={C.cyan} strokeWidth={3} name="ASER Arithmetic %" dot={{ r: 4 }} />
             </LineChart>
           </ResponsiveContainer>
         </Card>
 
         <Card>
-          <div style={{ fontWeight: 600, marginBottom: 4 }}>School Risk Distribution</div>
-          <div style={{ color: C.muted, fontSize: 12, marginBottom: 20 }}>Current status of all 8 monitored schools</div>
-          <ResponsiveContainer width="100%" height={220}>
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>School Risk Heatmap</div>
+          <div style={{ color: C.muted, fontSize: 12, marginBottom: 20 }}>Current risk distribution across all monitored blocks</div>
+          <ResponsiveContainer width="100%" height={240}>
             <BarChart data={[
-              { status: 'Critical',   count: critical,                              fill: C.red },
-              { status: 'At Risk',    count: atRisk,                                fill: C.yellow },
-              { status: 'Stagnant',   count: schools.filter(s=>s.risk==='stagnant').length, fill: C.muted },
-              { status: 'Recovering', count: recovering,                            fill: C.green },
+              { status: 'Critical', count: critical, fill: C.red },
+              { status: 'At Risk', count: atRisk, fill: C.yellow },
+              { status: 'Stagnant', count: schools.filter(s=>s.risk==='stagnant').length, fill: C.muted },
+              { status: 'Recovering', count: recovering, fill: C.green },
             ]}>
               <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
               <XAxis dataKey="status" stroke={C.muted} tick={{ fill: C.muted, fontSize: 12 }} />
               <YAxis stroke={C.muted} tick={{ fill: C.muted, fontSize: 12 }} allowDecimals={false} />
               <Tooltip contentStyle={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8 }} />
-              <Bar dataKey="count" name="Schools" radius={[4, 4, 0, 0]}>
-                {[C.red, C.yellow, C.muted, C.green].map((color, i) => (
-                  <rect key={i} fill={color} />
-                ))}
-              </Bar>
+              <Bar dataKey="count" name="Schools" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </Card>
       </div>
 
-      {/* AI Prediction Banner */}
-      <div style={{
-        background: `linear-gradient(135deg, ${C.accent}15, ${C.cyan}10)`,
-        border: `1px solid ${C.accent}44`, borderRadius: 12, padding: '20px 24px',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      }}>
+      <Card>
+        <div style={{ fontWeight: 600, marginBottom: 4 }}>Monthly Assessment Tracker (2026)</div>
+        <div style={{ color: C.muted, fontSize: 12, marginBottom: 24 }}>Real-time monthly monitoring aggregated from district archival forms</div>
+        <ResponsiveContainer width="100%" height={280}>
+          <LineChart data={monthlyTrend}>
+            <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
+            <XAxis dataKey="month" stroke={C.muted} tick={{ fill: C.muted, fontSize: 12 }} />
+            <YAxis stroke={C.muted} tick={{ fill: C.muted, fontSize: 12 }} domain={[0, 100]} unit="%" />
+            <Tooltip contentStyle={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8 }} />
+            <Legend />
+            <Line type="monotone" dataKey="reading" stroke={C.accent} strokeWidth={4} dot={{ r: 6, strokeWidth: 2, fill: C.bg }} name="Monthly Reading %" />
+            <Line type="monotone" dataKey="arithmetic" stroke={C.cyan} strokeWidth={4} dot={{ r: 6, strokeWidth: 2, fill: C.bg }} name="Monthly Arithmetic %" />
+          </LineChart>
+        </ResponsiveContainer>
+      </Card>
+      
+      <div style={{ marginTop: 24, padding: 24, borderRadius: 12, background: 'linear-gradient(135deg, rgba(59,130,246,0.1) 0%, rgba(6,182,212,0.1) 100%)', border: `1px solid ${C.accent}44`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <div style={{ fontSize: 28 }}>🤖</div>
-          <div>
-            <div style={{ fontWeight: 600, fontSize: 15 }}>AI Recovery Prediction</div>
-            <div style={{ color: C.muted, fontSize: 13, marginTop: 3 }}>
-              At current trajectory, Gaya district will miss the 2026 ASER benchmark of 45% unless <strong style={{ color: C.yellow }}>2 critical schools</strong> receive intervention within 60 days.
-            </div>
-          </div>
+          <div style={{ fontSize: 32 }}>🤖</div>
+          <div style={{ fontSize: 14 }}><strong>AI Predictive Focus:</strong> Gaya district is currently seeing a reading uptake, but arithmetic scores remain stagnated at 34%. <strong>Priority 1:</strong> Primary schools in Rajpur block for arithmetic intervention.</div>
         </div>
-        <button onClick={() => setPage('priority')} style={{
-          background: C.accent, color: '#fff', border: 'none', borderRadius: 8,
-          padding: '10px 20px', fontSize: 13, fontWeight: 600,
-          cursor: 'pointer', fontFamily: S.font, whiteSpace: 'nowrap',
-        }}>
-          View Priority Queue →
-        </button>
+        <button onClick={() => setPage('priority')} style={{ background: C.accent, color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', fontWeight: 600, cursor: 'pointer' }}>Action View →</button>
       </div>
     </div>
   );
 };
 
-// ─── SCREEN 3: PRIORITY QUEUE ─────────────────────────────────────────────────
-const PriorityScreen = ({ setPage, setSelectedSchool }) => {
-  const { data: schools, loading, error, refetch } = useAsyncData(fetchSchools);
+// ─── PRIORITY QUEUE SCREEN ─────────────────────────────────────────────────────
+const PriorityScreen = ({ setPage, setSelectedSchool, schools, loading, error, refetch }) => {
+  if (loading) return <div style={{ padding: 40 }}><LoadingSpinner text="Ranking priorities..." /></div>;
+  if (error) return <div style={{ padding: 40 }}><ErrorBanner error={error} onRetry={refetch} /></div>;
 
-  if (loading) return <div style={{ padding: 32 }}><LoadingSpinner text="Fetching priority queue..." /></div>;
-  if (error) return <div style={{ padding: 32 }}><ErrorBanner error={error} onRetry={refetch} /></div>;
+  const sortedSchools = [...schools].sort((a, b) => {
+    const weights = { critical: 1, 'at-risk': 2, stagnant: 3, recovering: 4 };
+    return (weights[a.risk] || 5) - (weights[b.risk] || 5);
+  });
 
   return (
-  <div style={{ padding: 32, fontFamily: S.font, color: C.text }}>
-    <div style={{ marginBottom: 28 }}>
-      <div style={{ fontSize: 26, fontWeight: 700, fontFamily: S.display }}>Intervention Priority Queue</div>
-      <div style={{ color: C.muted, fontSize: 14, marginTop: 4 }}>
-        AI-ranked schools that need action this month — updated from ASER trend analysis
+    <div style={{ padding: 32, fontFamily: S.font, color: C.text }}>
+      <div style={{ marginBottom: 28 }}>
+        <div style={{ fontSize: 28, fontWeight: 700, fontFamily: S.display }}>Intervention Priority Queue</div>
+        <div style={{ color: C.muted, fontSize: 14, marginTop: 4 }}>Ranking based on real-time monthly archival assessments. Updated immediately upon data entry.</div>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {sortedSchools.map((school, i) => (
+          <Card key={school.id} onClick={() => { setSelectedSchool(school); setPage('school-detail'); }} style={{ cursor: 'pointer', borderLeft: `4px solid ${riskColor(school.risk)}`, display: 'flex', alignItems: 'center', gap: 24, transition: 'all 0.15s' }}>
+            <div style={{ width: 40, height: 40, borderRadius: 8, background: C.surface, color: C.muted, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 18, fontFamily: S.mono }}>#{i+1}</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
+                <span style={{ fontWeight: 600, fontSize: 16 }}>{school.name}</span>
+                <Badge risk={school.risk} />
+              </div>
+              <div style={{ color: C.muted, fontSize: 13 }}>{school.block} Block · {school.students} students enrolled</div>
+            </div>
+            <div style={{ display: 'flex', gap: 32 }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>READING</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: riskColor(school.risk), fontFamily: S.mono }}>{school.reading}%</div>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>ARITHMETIC</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: riskColor(school.risk), fontFamily: S.mono }}>{school.arithmetic}%</div>
+              </div>
+              <div style={{ color: C.muted, fontSize: 20, display: 'flex', alignItems: 'center' }}>›</div>
+            </div>
+          </Card>
+        ))}
       </div>
     </div>
-
-    {/* Legend */}
-    <div style={{ display: 'flex', gap: 20, marginBottom: 24 }}>
-      {['critical','at-risk','stagnant','recovering'].map(r => (
-        <div key={r} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <div style={{ width: 10, height: 10, borderRadius: '50%', background: riskColor(r) }} />
-          <span style={{ color: C.muted, fontSize: 13 }}>{riskLabel(r)}</span>
-        </div>
-      ))}
-    </div>
-
-    {/* School Cards */}
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {schools.map((school, i) => (
-        <div key={school.id}
-          onClick={() => { setSelectedSchool(school); setPage('school-detail'); }}
-          style={{
-            background: C.card, border: `1px solid ${C.border}`,
-            borderLeft: `4px solid ${riskColor(school.risk)}`,
-            borderRadius: 12, padding: '18px 24px',
-            display: 'flex', alignItems: 'center', gap: 20,
-            cursor: 'pointer', transition: 'background 0.15s',
-          }}
-          onMouseEnter={e => e.currentTarget.style.background = C.faint}
-          onMouseLeave={e => e.currentTarget.style.background = C.card}
-        >
-          {/* Rank */}
-          <div style={{
-            width: 36, height: 36, borderRadius: 8,
-            background: i < 2 ? C.red + '22' : i < 4 ? C.yellow + '22' : C.border,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: i < 2 ? C.red : i < 4 ? C.yellow : C.muted,
-            fontWeight: 700, fontSize: 15, fontFamily: S.mono, flexShrink: 0,
-          }}>#{i + 1}</div>
-
-          {/* Info */}
-          <div style={{ flex: 1 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-              <span style={{ fontWeight: 600, fontSize: 15 }}>{school.name}</span>
-              <Badge risk={school.risk} />
-            </div>
-            <div style={{ color: C.muted, fontSize: 13 }}>
-              {school.block} Block · {school.students} students · {school.interventions} interventions logged
-            </div>
-          </div>
-
-          {/* Metrics */}
-          <div style={{ display: 'flex', gap: 24, flexShrink: 0 }}>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ color: C.muted, fontSize: 11, marginBottom: 2 }}>READING</div>
-              <div style={{ color: school.reading < 35 ? C.red : school.reading < 45 ? C.yellow : C.green, fontWeight: 700, fontSize: 18, fontFamily: S.mono }}>
-                {school.reading}%
-              </div>
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ color: C.muted, fontSize: 11, marginBottom: 2 }}>ARITHMETIC</div>
-              <div style={{ color: school.arithmetic < 30 ? C.red : school.arithmetic < 40 ? C.yellow : C.green, fontWeight: 700, fontSize: 18, fontFamily: S.mono }}>
-                {school.arithmetic}%
-              </div>
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ color: C.muted, fontSize: 11, marginBottom: 2 }}>TREND</div>
-              <div style={{ color: school.trend < 0 ? C.red : school.trend === 0 ? C.muted : C.green, fontWeight: 700, fontSize: 18, fontFamily: S.mono }}>
-                {school.trend > 0 ? '+' : ''}{school.trend}pp
-              </div>
-            </div>
-          </div>
-
-          <div style={{ color: C.muted, fontSize: 18, marginLeft: 8 }}>›</div>
-        </div>
-      ))}
-    </div>
-  </div>
   );
 };
 
-// ─── SCREEN 4: SCHOOL DETAIL ──────────────────────────────────────────────────
-const SchoolDetailScreen = ({ school, setPage }) => {
-  const { data: trend, loading, error, refetch } = useAsyncData(() => fetchSchoolTrend(school.id), [school.id]);
+// ─── SCHOOL DETAIL SCREEN ─────────────────────────────────────────────────────
+const SchoolDetailScreen = ({ school, setPage, onAssessmentComplete }) => {
+  const [isArchiving, setIsArchiving] = useState(false);
+  const { data: trend, loading, error, refetch: refetchTrend } = useAsyncData(() => fetchSchoolTrend(school.id), [school.id]);
 
-  if (loading) return <div style={{ padding: 32 }}><LoadingSpinner text={`Loading profile for ${school.name}...`} /></div>;
-  if (error) return <div style={{ padding: 32 }}><ErrorBanner error={error} onRetry={refetch} /></div>;
+  if (loading) return <div style={{ padding: 40 }}><LoadingSpinner text={`Loading ${school.name}...`} /></div>;
+  if (error) return <div style={{ padding: 40 }}><ErrorBanner error={error} onRetry={refetchTrend} /></div>;
+
+  if (isArchiving) return (
+    <AssessmentModule 
+      school={school} 
+      onComplete={() => { refetchTrend(); onAssessmentComplete(); setIsArchiving(false); }} 
+      onCancel={() => setIsArchiving(false)} 
+    />
+  );
 
   const radarData = [
-    { subject: 'Reading',    score: school.reading },
-    { subject: 'Arithmetic', score: school.arithmetic },
-    { subject: 'Attendance', score: 68 },
-    { subject: 'Teacher Ratio', score: 55 },
-    { subject: 'Resources',  score: 40 },
+    { subject: 'Grade Reading', score: school.reading, full: 100 },
+    { subject: 'Arithmetic Logic', score: school.arithmetic, full: 100 },
+    { subject: 'Attendance', score: 72, full: 100 },
+    { subject: 'Teacher Ratio', score: 58, full: 100 },
+    { subject: 'Infrastructure', score: 45, full: 100 },
   ];
 
   return (
     <div style={{ padding: 32, fontFamily: S.font, color: C.text }}>
-      {/* Back */}
-      <button onClick={() => setPage('priority')} style={{
-        background: 'transparent', border: `1px solid ${C.border}`,
-        color: C.muted, borderRadius: 8, padding: '6px 14px',
-        fontSize: 13, cursor: 'pointer', fontFamily: S.font, marginBottom: 24,
-      }}>← Back to Queue</button>
-
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28 }}>
+      <button onClick={() => setPage('priority')} style={{ background: 'transparent', border: `1px solid ${C.border}`, color: C.muted, borderRadius: 8, padding: '6px 14px', fontSize: 13, cursor: 'pointer', marginBottom: 24 }}>← Back to View</button>
+      
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 32 }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
-            <div style={{ fontSize: 26, fontWeight: 700, fontFamily: S.display }}>{school.name}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 6 }}>
+            <div style={{ fontSize: 32, fontWeight: 700, fontFamily: S.display }}>{school.name}</div>
             <Badge risk={school.risk} />
           </div>
-          <div style={{ color: C.muted, fontSize: 14 }}>
-            {school.block} Block · Gaya District · {school.students} enrolled students
-          </div>
+          <div style={{ color: C.muted, fontSize: 15 }}>{school.block} Block · Gaya District · Managed as "{school.risk.toUpperCase()}" priority</div>
         </div>
-        <button style={{
-          background: C.accent, color: '#fff', border: 'none', borderRadius: 8,
-          padding: '10px 20px', fontSize: 13, fontWeight: 600,
-          cursor: 'pointer', fontFamily: S.font,
-        }}>
-          + Log Intervention
-        </button>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <button onClick={() => setIsArchiving(true)} style={{ background: 'transparent', color: C.accent, border: `1px solid ${C.accent}44`, borderRadius: 8, padding: '10px 20px', fontWeight: 600, cursor: 'pointer' }}>📥 Archive Monthly Data</button>
+          <button style={{ background: C.accent, color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', fontWeight: 600, cursor: 'pointer' }}>+ Log Intervention</button>
+        </div>
       </div>
 
-      {/* KPIs */}
       <div style={{ display: 'flex', gap: 16, marginBottom: 24 }}>
-        <KpiCard label="Std V Reading" value={`${school.reading}%`} sub="vs 36% district avg" color={school.reading < 35 ? C.red : C.yellow} />
-        <KpiCard label="Std V Arithmetic" value={`${school.arithmetic}%`} sub="vs 30% district avg" color={school.arithmetic < 28 ? C.red : C.yellow} />
-        <KpiCard label="YoY Trend" value={`${school.trend > 0 ? '+' : ''}${school.trend}pp`} sub="Change since last ASER cycle" color={school.trend < 0 ? C.red : C.green} />
-        <KpiCard label="Interventions" value={school.interventions} sub="Logged actions in last 12 months" color={C.cyan} />
+        <KpiCard label="Reading Proficiency" value={`${school.reading}%`} sub="Current Proficiency" color={riskColor(school.risk)} />
+        <KpiCard label="Arithmatic Skills" value={`${school.arithmetic}%`} sub="Current Proficiency" color={riskColor(school.risk)} />
+        <KpiCard label="Students" value={school.students} sub="Enrolled in latest survey" color={C.cyan} />
+        <Card style={{ flex: 1, padding: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', background: C.faint }}>
+           <div style={{ textAlign: 'center' }}><div style={{ fontSize: 12, color: C.muted }}>RECOVERY FORECAST</div><div style={{ fontSize: 20, fontWeight: 700, color: C.green }}>6 MONTHS</div></div>
+        </Card>
       </div>
 
-      {/* Charts */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 16, marginBottom: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 20, marginBottom: 24 }}>
         <Card>
-          <div style={{ fontWeight: 600, marginBottom: 4 }}>5-Year Learning Trend</div>
-          <div style={{ color: C.muted, fontSize: 12, marginBottom: 20 }}>Reading & arithmetic % over time</div>
-          <ResponsiveContainer width="100%" height={200}>
+          <div style={{ fontWeight: 600, marginBottom: 24 }}>Learning Trend History (Monthly)</div>
+          <ResponsiveContainer width="100%" height={280}>
             <LineChart data={trend}>
-              <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
-              <XAxis dataKey="year" stroke={C.muted} tick={{ fill: C.muted, fontSize: 12 }} />
-              <YAxis stroke={C.muted} tick={{ fill: C.muted, fontSize: 12 }} domain={[0, 60]} unit="%" />
+              <CartesianGrid strokeDasharray="3 3" stroke={C.border} vertical={false} />
+              <XAxis dataKey="month" stroke={C.muted} tick={{ fontSize: 12 }} />
+              <YAxis stroke={C.muted} tick={{ fontSize: 12 }} />
               <Tooltip contentStyle={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8 }} />
-              <Legend />
-              <Line type="monotone" dataKey="reading" stroke={C.accent} strokeWidth={2.5} dot={{ r: 4 }} name="Reading %" />
-              <Line type="monotone" dataKey="arithmetic" stroke={C.cyan} strokeWidth={2.5} dot={{ r: 4 }} name="Arithmetic %" />
+              <Line type="monotone" dataKey="readingScore" stroke={C.accent} strokeWidth={4} name="Reading" dot={{ r: 5 }} />
+              <Line type="monotone" dataKey="arithmeticScore" stroke={C.cyan} strokeWidth={4} name="Arithmetic" dot={{ r: 5 }} />
             </LineChart>
           </ResponsiveContainer>
         </Card>
 
-        <Card>
-          <div style={{ fontWeight: 600, marginBottom: 4 }}>School Health Radar</div>
-          <div style={{ color: C.muted, fontSize: 12, marginBottom: 12 }}>Multi-dimensional school assessment</div>
-          <ResponsiveContainer width="100%" height={200}>
-            <RadarChart data={radarData}>
-              <PolarGrid stroke={C.border} />
-              <PolarAngleAxis dataKey="subject" tick={{ fill: C.muted, fontSize: 11 }} />
-              <Radar dataKey="score" stroke={C.accent} fill={C.accent} fillOpacity={0.2} />
-            </RadarChart>
-          </ResponsiveContainer>
+        <Card style={{ display: 'flex', flexDirection: 'column' }}>
+          <div style={{ fontWeight: 600, marginBottom: 12 }}>School Health Radar</div>
+          <div style={{ color: C.muted, fontSize: 12, marginBottom: 24 }}>Multidimensional performance diagnostic</div>
+          <div style={{ flex: 1 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <RadarChart data={radarData}>
+                <PolarGrid stroke={C.border} />
+                <PolarAngleAxis dataKey="subject" tick={{ fill: C.muted, fontSize: 11 }} />
+                <Radar name="Metrics" dataKey="score" stroke={C.accent} fill={C.accent} fillOpacity={0.3} />
+              </RadarChart>
+            </ResponsiveContainer>
+          </div>
         </Card>
       </div>
 
-      {/* AI Recommendation */}
-      <Card style={{ background: `linear-gradient(135deg, ${C.accent}12, ${C.cyan}08)`, border: `1px solid ${C.accent}44` }}>
-        <div style={{ display: 'flex', gap: 16 }}>
+      <Card style={{ background: `linear-gradient(135deg, ${C.accent}12, transparent)` }}>
+        <div style={{ display: 'flex', gap: 20 }}>
           <div style={{ fontSize: 32 }}>🤖</div>
-          <div>
-            <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 6 }}>AI Intervention Recommendation</div>
-            <div style={{ color: C.muted, fontSize: 13, lineHeight: 1.6 }}>
-              Based on 3-year decline pattern and similarity to <strong style={{ color: C.text }}>14 comparable schools</strong> in Bihar,
-              Metriq recommends: <strong style={{ color: C.accent }}>targeted teacher deployment for arithmetic</strong> + a
-              <strong style={{ color: C.accent }}> structured reading circle program</strong> 3x/week.
-              Schools with similar profiles improved by an average of <strong style={{ color: C.green }}>+8pp in 6 months</strong> after this combination.
-            </div>
-          </div>
+          <div style={{ fontSize: 14 }}><strong>AI Intervention Strategy:</strong> Based on the {Math.abs(school.trend)}pp decline in {school.risk === 'critical' ? 'Reading' : 'Arithmetic'}, Metriq recommends: <strong>Intensive Teacher Resource Kit #4</strong> and <strong>Bi-Weekly Monitoring</strong>. Schools following this path improved scores by 8% in 12 weeks.</div>
         </div>
       </Card>
     </div>
   );
 };
 
-// ─── SCREEN 5: INTERVENTIONS TRACKER ─────────────────────────────────────────
+// ─── INTERVENTIONS LOG SCREEN ─────────────────────────────────────────────────
 const InterventionsScreen = () => {
   const { data: interventions, loading, error, refetch } = useAsyncData(fetchInterventions);
 
-  if (loading) return <div style={{ padding: 32 }}><LoadingSpinner text="Loading intervention log..." /></div>;
-  if (error) return <div style={{ padding: 32 }}><ErrorBanner error={error} onRetry={refetch} /></div>;
+  if (loading) return <div style={{ padding: 40 }}><LoadingSpinner text="Fetching log..." /></div>;
+  if (error) return <div style={{ padding: 40 }}><ErrorBanner error={error} onRetry={refetch} /></div>;
 
   return (
-  <div style={{ padding: 32, fontFamily: S.font, color: C.text }}>
-    <div style={{ marginBottom: 28 }}>
-      <div style={{ fontSize: 26, fontWeight: 700, fontFamily: S.display }}>Intervention Tracker</div>
-      <div style={{ color: C.muted, fontSize: 14, marginTop: 4 }}>Log and monitor actions taken across schools in your district</div>
-    </div>
-
-    {/* Summary */}
-    <div style={{ display: 'flex', gap: 16, marginBottom: 28 }}>
-      <KpiCard label="Total Interventions" value="4" sub="Logged this academic year" color={C.accent} />
-      <KpiCard label="Successful" value="2" sub="Showed measurable improvement" color={C.green} />
-      <KpiCard label="Pending Review" value="2" sub="Awaiting next assessment cycle" color={C.yellow} />
-    </div>
-
-    {/* Log Table */}
-    <Card>
-      <div style={{ fontWeight: 600, marginBottom: 20 }}>Action Log</div>
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <thead>
-          <tr style={{ borderBottom: `1px solid ${C.border}` }}>
-            {['School', 'Intervention Type', 'Date', 'Outcome', 'Status'].map(h => (
-              <th key={h} style={{ textAlign: 'left', padding: '8px 12px', color: C.muted, fontSize: 12, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {interventions.map((row, i) => (
-            <tr key={row.id} style={{ borderBottom: `1px solid ${C.border}`, background: i % 2 === 0 ? 'transparent' : C.faint + '55' }}>
-              <td style={{ padding: '14px 12px', fontSize: 14, fontWeight: 500 }}>{row.school}</td>
-              <td style={{ padding: '14px 12px', color: C.muted, fontSize: 13 }}>{row.type}</td>
-              <td style={{ padding: '14px 12px', color: C.muted, fontSize: 13, fontFamily: S.mono }}>{row.date}</td>
-              <td style={{ padding: '14px 12px', fontSize: 13 }}>{row.outcome}</td>
-              <td style={{ padding: '14px 12px' }}>
-                <span style={{
-                  background: row.status === 'success' ? C.green + '22' : C.yellow + '22',
-                  color: row.status === 'success' ? C.green : C.yellow,
-                  border: `1px solid ${row.status === 'success' ? C.green : C.yellow}44`,
-                  borderRadius: 6, padding: '3px 10px', fontSize: 12, fontWeight: 600,
-                }}>
-                  {row.status === 'success' ? '✓ Success' : '⏳ Pending'}
-                </span>
-              </td>
+    <div style={{ padding: 32, fontFamily: S.font, color: C.text }}>
+      <div style={{ marginBottom: 28 }}>
+        <div style={{ fontSize: 28, fontWeight: 700, fontFamily: S.display }}>Intervention Action Log</div>
+        <div style={{ color: C.muted, fontSize: 14, marginTop: 4 }}>Track all educational actions taken by District Education Officers across monitored schools.</div>
+      </div>
+      <Card style={{ padding: 0 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+          <thead>
+            <tr style={{ background: C.faint }}>
+              <th style={{ padding: '16px 24px', color: C.muted, fontSize: 12, fontWeight: 600, letterSpacing: '0.05em' }}>SCHOOL</th>
+              <th style={{ padding: '16px 24px', color: C.muted, fontSize: 12, fontWeight: 600, letterSpacing: '0.05em' }}>INTERVENTION TYPE</th>
+              <th style={{ padding: '16px 24px', color: C.muted, fontSize: 12, fontWeight: 600, letterSpacing: '0.05em' }}>DATE LOGGED</th>
+              <th style={{ padding: '16px 24px', color: C.muted, fontSize: 12, fontWeight: 600, letterSpacing: '0.05em' }}>STATUS</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </Card>
-  </div>
+          </thead>
+          <tbody>
+            {interventions.map((i, idx) => (
+              <tr key={i.id} style={{ borderBottom: idx === interventions.length - 1 ? 'none' : `1px solid ${C.border}`, transition: 'background 0.1s' }} onMouseEnter={e => e.currentTarget.style.background = C.faint} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                <td style={{ padding: '16px 24px', fontWeight: 600, fontSize: 14 }}>{i.school}</td>
+                <td style={{ padding: '16px 24px', color: C.text, fontSize: 14 }}>{i.type}</td>
+                <td style={{ padding: '16px 24px', color: C.muted, fontSize: 13, fontFamily: S.mono }}>{i.date}</td>
+                <td style={{ padding: '16px 24px' }}>
+                  <span style={{ background: i.status === 'success' ? C.green + '22' : C.yellow + '22', color: i.status === 'success' ? C.green : C.yellow, padding: '4px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700 }}>{i.status.toUpperCase()}</span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Card>
+    </div>
   );
 };
 
 // ─── LANDING PAGE ─────────────────────────────────────────────────────────────
 const LandingPage = ({ onGetStarted }) => {
   const stats = [
-    { value: '42.8%', label: 'Std V reading rate at COVID low (2022)', color: C.red },
-    { value: '6 in 10', label: 'Bihar children cannot read grade-level text', color: C.yellow },
-    { value: '20 yrs', label: 'of ASER data — still no district-level action tool', color: C.muted },
-    { value: '+8pp', label: 'avg improvement when right intervention is applied', color: C.green },
+    { label: 'Historical Baseline', value: '20 Years', desc: 'ASER district data (2014-2024)' },
+    { label: 'Critical Threshold', value: '< 35%', desc: 'Immediate intervention trigger' },
+    { label: 'District Reach', value: '500+', desc: 'Schools tracked in real-time' },
   ];
 
   const features = [
-    {
-      icon: '🗺️',
-      title: 'School Risk Heatmap',
-      desc: 'Every school in your district classified as Critical, At Risk, Stagnant, or Recovering — updated each ASER cycle.',
-    },
-    {
-      icon: '📋',
-      title: 'Priority Action Queue',
-      desc: 'AI-ranked list of schools that need intervention this month. Not a report — a to-do list for your district.',
-    },
-    {
-      icon: '🤖',
-      title: 'AI Intervention Recommender',
-      desc: 'Based on what worked in similar schools across Bihar, Metriq recommends the highest-impact action for each school.',
-    },
-    {
-      icon: '📈',
-      title: 'Outcome Tracker',
-      desc: 'Log every intervention and track whether it actually moved the needle by the next ASER survey.',
-    },
+    { title: 'Data Archival', icon: '📥', desc: 'Direct entry for monthly assessment metrics.' },
+    { title: 'Risk Scoring', icon: '📈', desc: 'Automated ranking for critical/at-risk schools.' },
+    { title: 'AI Tasks', icon: '🤖', desc: 'Predictive difficulty preview for classrooms.' },
+    { title: 'Action Logs', icon: '📝', desc: 'Transparent history of DEO interventions.' },
   ];
 
   return (
-    <div style={{ minHeight: '100vh', background: C.bg, fontFamily: S.font, color: C.text, overflowX: 'hidden' }}>
-
-      {/* Navbar */}
-      <nav style={{
-        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
-        background: C.bg + 'ee', backdropFilter: 'blur(12px)',
-        borderBottom: `1px solid ${C.border}`,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 48px', height: 64,
-      }}>
-        <div style={{ fontFamily: S.display, fontSize: 26, color: C.accent, fontWeight: 900, letterSpacing: '-0.02em' }}>
-          metriq
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 32 }}>
-          {['Problem', 'Solution', 'Features'].map(l => (
-            <a key={l} href={`#${l.toLowerCase()}`} style={{
-              color: C.muted, fontSize: 14, textDecoration: 'none',
-              transition: 'color 0.2s',
-            }}
-            onMouseEnter={e => e.target.style.color = C.text}
-            onMouseLeave={e => e.target.style.color = C.muted}
-            >{l}</a>
-          ))}
-          <button onClick={onGetStarted} style={{
-            background: C.accent, color: '#fff', border: 'none',
-            borderRadius: 8, padding: '8px 20px', fontSize: 14,
-            fontWeight: 600, cursor: 'pointer', fontFamily: S.font,
-          }}>
-            Sign In →
-          </button>
-        </div>
-      </nav>
-
+    <div style={{ background: C.bg, fontFamily: S.font, color: C.text }}>
       {/* Hero */}
-      <section style={{
-        minHeight: '100vh', display: 'flex', alignItems: 'center',
-        justifyContent: 'center', flexDirection: 'column',
-        textAlign: 'center', padding: '120px 48px 80px',
-        position: 'relative',
-      }}>
-        {/* Background grid */}
-        <div style={{
-          position: 'absolute', inset: 0,
-          backgroundImage: `linear-gradient(${C.border}55 1px, transparent 1px), linear-gradient(90deg, ${C.border}55 1px, transparent 1px)`,
-          backgroundSize: '56px 56px', opacity: 0.3,
-        }} />
-        {/* Radial glow */}
-        <div style={{
-          position: 'absolute', top: '40%', left: '50%', transform: 'translate(-50%,-50%)',
-          width: 800, height: 800, borderRadius: '50%',
-          background: `radial-gradient(circle, ${C.accent}14 0%, transparent 65%)`,
-          pointerEvents: 'none',
-        }} />
-
-        <div style={{ position: 'relative', maxWidth: 760 }}>
-          {/* Eyebrow tag */}
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: 8,
-            background: C.accent + '18', border: `1px solid ${C.accent}44`,
-            borderRadius: 100, padding: '6px 16px', marginBottom: 28,
-          }}>
-            <div style={{ width: 6, height: 6, borderRadius: '50%', background: C.accent }} />
-            <span style={{ color: C.accent, fontSize: 13, fontWeight: 500 }}>Built on 20 years of ASER data</span>
+      <div style={{ minHeight: '85vh', padding: '0 40px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', inset: 0, backgroundImage: `radial-gradient(circle at 50% 50%, ${C.accent}11 0%, transparent 70%)` }} />
+        <div style={{ position: 'relative', maxWidth: 800 }}>
+          <div style={{ display: 'inline-block', padding: '4px 12px', background: C.accent + '22', borderRadius: 20, color: C.accent, fontSize: 13, fontWeight: 600, marginBottom: 24, letterSpacing: '0.05em' }}>
+            BEYOND ASER: REAL-TIME MONITORING
           </div>
-
-          <h1 style={{
-            fontFamily: S.display, fontSize: 60, fontWeight: 900,
-            lineHeight: 1.1, margin: '0 0 24px',
-            letterSpacing: '-0.03em',
-          }}>
-            India's education data<br />
-            <span style={{ color: C.accent }}>has never become action.</span><br />
-            Until now.
-          </h1>
-
-          <p style={{
-            fontSize: 18, color: C.muted, lineHeight: 1.7,
-            maxWidth: 580, margin: '0 auto 40px',
-          }}>
-            Metriq turns ASER district data into prioritised intervention lists for
-            District Education Officers — telling them not just what's wrong,
-            but exactly where to act first.
-          </p>
-
-          <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button onClick={onGetStarted} style={{
-              background: `linear-gradient(135deg, ${C.accent}, ${C.accentLo})`,
-              color: '#fff', border: 'none', borderRadius: 10,
-              padding: '14px 32px', fontSize: 16, fontWeight: 600,
-              cursor: 'pointer', fontFamily: S.font,
-            }}>
-              Access Your District →
-            </button>
-            <a href="#problem" style={{
-              background: 'transparent', color: C.muted,
-              border: `1px solid ${C.border}`, borderRadius: 10,
-              padding: '14px 32px', fontSize: 16, fontWeight: 500,
-              cursor: 'pointer', fontFamily: S.font, textDecoration: 'none',
-              display: 'inline-flex', alignItems: 'center',
-            }}>
-              See the problem
-            </a>
+          <h1 style={{ fontFamily: S.display, fontSize: 80, fontWeight: 900, marginBottom: 24, letterSpacing: '-0.03em', lineHeight: 1 }}>metriq</h1>
+          <p style={{ color: C.muted, fontSize: 24, lineHeight: 1.5, marginBottom: 44 }}>Transforming decades of educational data into daily district action. Data archival, risk analytics, and AI-driven monitoring for DEOs.</p>
+          <div style={{ display: 'flex', gap: 16, justifyContent: 'center' }}>
+            <button onClick={onGetStarted} style={{ padding: '18px 48px', background: C.accent, color: '#fff', border: 'none', borderRadius: 12, fontSize: 18, fontWeight: 700, cursor: 'pointer', boxShadow: `0 8px 24px ${C.accent}44` }}>Access Your District →</button>
           </div>
         </div>
-      </section>
+      </div>
 
-      {/* Problem Section */}
-      <section id="problem" style={{ padding: '100px 48px', background: C.surface }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-          <div style={{ marginBottom: 16 }}>
-            <span style={{ color: C.accent, fontSize: 13, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' }}>The Problem</span>
-          </div>
-          <h2 style={{ fontFamily: S.display, fontSize: 42, fontWeight: 900, margin: '0 0 16px', letterSpacing: '-0.02em', maxWidth: 680 }}>
-            The data exists. The decisions don't follow.
-          </h2>
-          <p style={{ color: C.muted, fontSize: 17, lineHeight: 1.7, maxWidth: 620, margin: '0 0 60px' }}>
-            ASER has published state-level learning data every year since 2005.
-            Every District Education Officer gets the PDF. They hold a meeting. Nothing changes.
-            The problem was never a lack of data — it was a lack of a tool that turns data into decisions.
-          </p>
-
-          {/* Stats grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
-            {stats.map((s, i) => (
-              <div key={i} style={{
-                background: C.card, border: `1px solid ${C.border}`,
-                borderTop: `3px solid ${s.color}`,
-                borderRadius: 12, padding: '28px 24px',
-              }}>
-                <div style={{ fontFamily: S.display, fontSize: 38, fontWeight: 900, color: s.color, marginBottom: 10 }}>{s.value}</div>
-                <div style={{ color: C.muted, fontSize: 14, lineHeight: 1.5 }}>{s.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Solution Section */}
-      <section id="solution" style={{ padding: '100px 48px' }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-          <div style={{ marginBottom: 16 }}>
-            <span style={{ color: C.accent, fontSize: 13, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' }}>The Solution</span>
-          </div>
-          <h2 style={{ fontFamily: S.display, fontSize: 42, fontWeight: 900, margin: '0 0 16px', letterSpacing: '-0.02em', maxWidth: 680 }}>
-            Give every DEO a prioritised to-do list, not a report.
-          </h2>
-          <p style={{ color: C.muted, fontSize: 17, lineHeight: 1.7, maxWidth: 620, margin: '0 0 60px' }}>
-            Metriq ingests ASER data, classifies every school in your district by risk level,
-            and recommends the highest-impact intervention — backed by what actually worked
-            in comparable schools across Bihar.
-          </p>
-
-          {/* Flow diagram */}
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 0,
-            background: C.card, border: `1px solid ${C.border}`,
-            borderRadius: 14, padding: '32px 36px', overflowX: 'auto',
-          }}>
-            {[
-              { icon: '📊', label: 'ASER Data Ingested' },
-              { icon: '🤖', label: 'AI Classifies Schools' },
-              { icon: '📋', label: 'Priority Queue Built' },
-              { icon: '✅', label: 'DEO Takes Action' },
-              { icon: '📈', label: 'Outcomes Tracked' },
-            ].map((step, i, arr) => (
-              <React.Fragment key={i}>
-                <div style={{ textAlign: 'center', flex: 1, minWidth: 120 }}>
-                  <div style={{
-                    width: 56, height: 56, borderRadius: 14,
-                    background: C.accent + '18', border: `1px solid ${C.accent}33`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 24, margin: '0 auto 12px',
-                  }}>{step.icon}</div>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: C.text, lineHeight: 1.4 }}>{step.label}</div>
+      {/* Product Details: Problem/Solution */}
+      <div style={{ padding: '80px 40px', background: C.surface, borderTop: `1px solid ${C.border}` }}>
+        <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 60, marginBottom: 100 }}>
+            <div>
+              <div style={{ color: C.red, fontWeight: 700, fontSize: 13, marginBottom: 12 }}>THE CHALLENGE</div>
+              <h2 style={{ fontFamily: S.display, fontSize: 36, marginBottom: 20 }}>Learning is Stagnated</h2>
+              <p style={{ color: C.muted, fontSize: 17, lineHeight: 1.7 }}>With 20 years of historical data from 2014-2024, our district remains at a critical threshold. Static yearly reporting isn't enough to drive monthly improvement.</p>
+            </div>
+            <div style={{ display: 'flex', gap: 20 }}>
+              {stats.map(s => (
+                <div key={s.label} style={{ flex: 1 }}>
+                  <div style={{ fontSize: 28, fontWeight: 800, color: C.text, fontFamily: S.display }}>{s.value}</div>
+                  <div style={{ fontSize: 12, color: C.muted, fontWeight: 600, marginTop: 4 }}>{s.label}</div>
                 </div>
-                {i < arr.length - 1 && (
-                  <div style={{ color: C.border, fontSize: 22, padding: '0 8px', flexShrink: 0 }}>→</div>
-                )}
-              </React.Fragment>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
 
-      {/* Features Section */}
-      <section id="features" style={{ padding: '100px 48px', background: C.surface }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-          <div style={{ marginBottom: 16 }}>
-            <span style={{ color: C.accent, fontSize: 13, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Features</span>
-          </div>
-          <h2 style={{ fontFamily: S.display, fontSize: 42, fontWeight: 900, margin: '0 0 56px', letterSpacing: '-0.02em' }}>
-            Built for how districts actually work.
-          </h2>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-            {features.map((f, i) => (
-              <div key={i} style={{
-                background: C.card, border: `1px solid ${C.border}`,
-                borderRadius: 14, padding: '32px',
-                transition: 'border-color 0.2s',
-              }}
-              onMouseEnter={e => e.currentTarget.style.borderColor = C.accent + '66'}
-              onMouseLeave={e => e.currentTarget.style.borderColor = C.border}
-              >
-                <div style={{ fontSize: 32, marginBottom: 16 }}>{f.icon}</div>
-                <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 10 }}>{f.title}</div>
-                <div style={{ color: C.muted, fontSize: 14, lineHeight: 1.7 }}>{f.desc}</div>
-              </div>
-            ))}
+          <div style={{ textAlign: 'center', marginBottom: 100 }}>
+            <div style={{ color: C.accent, fontWeight: 700, fontSize: 13, marginBottom: 12 }}>THE SOLUTION</div>
+            <h2 style={{ fontFamily: S.display, fontSize: 48, marginBottom: 60 }}>Modern Archival Workflow</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 24 }}>
+              {features.map(f => (
+                <Card key={f.title} style={{ textAlign: 'center', padding: 32 }}>
+                  <div style={{ fontSize: 32, marginBottom: 20 }}>{f.icon}</div>
+                  <div style={{ fontWeight: 700, marginBottom: 10 }}>{f.title}</div>
+                  <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.5 }}>{f.desc}</div>
+                </Card>
+              ))}
+            </div>
           </div>
         </div>
-      </section>
-
-      {/* CTA Section */}
-      <section style={{ padding: '100px 48px', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
-        <div style={{
-          position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
-          width: 600, height: 400, borderRadius: '50%',
-          background: `radial-gradient(circle, ${C.accent}12 0%, transparent 70%)`,
-          pointerEvents: 'none',
-        }} />
-        <div style={{ position: 'relative', maxWidth: 600, margin: '0 auto' }}>
-          <h2 style={{ fontFamily: S.display, fontSize: 44, fontWeight: 900, margin: '0 0 20px', letterSpacing: '-0.02em' }}>
-            Your district's data is waiting.
-          </h2>
-          <p style={{ color: C.muted, fontSize: 17, lineHeight: 1.7, marginBottom: 40 }}>
-            Sign in with your district credentials to access your school risk dashboard and intervention queue.
-          </p>
-          <button onClick={onGetStarted} style={{
-            background: `linear-gradient(135deg, ${C.accent}, ${C.accentLo})`,
-            color: '#fff', border: 'none', borderRadius: 10,
-            padding: '16px 40px', fontSize: 17, fontWeight: 600,
-            cursor: 'pointer', fontFamily: S.font,
-          }}>
-            Access Your District →
-          </button>
-        </div>
-      </section>
+      </div>
 
       {/* Footer */}
-      <footer style={{
-        borderTop: `1px solid ${C.border}`, padding: '28px 48px',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      }}>
-        <div style={{ fontFamily: S.display, fontSize: 20, color: C.accent, fontWeight: 900 }}>metriq</div>
-        <div style={{ color: C.muted, fontSize: 13 }}>Powered by ASER data · Bihar Education Department · 2024</div>
-      </footer>
+      <div style={{ padding: '100px 40px', textAlign: 'center', borderTop: `1px solid ${C.border}` }}>
+        <div style={{ fontSize: 14, color: C.muted }}>metriq Intelligence · Bihar Education Department · 2026 Monthly Dashboard</div>
+      </div>
     </div>
   );
 };
 
-// ─── APP ROOT ─────────────────────────────────────────────────────────────────
+// ─── MAIN APP COMPONENT ───────────────────────────────────────────────────────
 export default function App() {
-  const [screen, setScreen] = useState('landing'); // 'landing' | 'login' | 'dashboard'
+  const [screen, setScreen] = useState('landing');
   const [page, setPage] = useState('overview');
   const [selectedSchool, setSelectedSchool] = useState(null);
+
+  const { 
+    data: schools, 
+    loading: schoolsLoading, 
+    error: schoolsError, 
+    refetch: refetchSchools 
+  } = useAsyncData(fetchSchools);
 
   if (screen === 'landing') return <LandingPage onGetStarted={() => setScreen('login')} />;
   if (screen === 'login')   return <LoginScreen onLogin={() => setScreen('dashboard')} />;
@@ -849,9 +507,33 @@ export default function App() {
   return (
     <div style={{ minHeight: '100vh', background: C.bg, color: C.text }}>
       <NavBar page={page} setPage={setPage} setSelectedSchool={setSelectedSchool} />
-      {page === 'overview'      && <OverviewScreen setPage={setPage} setSelectedSchool={setSelectedSchool} />}
-      {page === 'priority'      && <PriorityScreen setPage={setPage} setSelectedSchool={setSelectedSchool} />}
-      {page === 'school-detail' && selectedSchool && <SchoolDetailScreen school={selectedSchool} setPage={setPage} />}
+      {page === 'overview' && (
+        <OverviewScreen 
+          setPage={setPage} 
+          setSelectedSchool={setSelectedSchool} 
+          schools={schools} 
+          loading={schoolsLoading} 
+          error={schoolsError} 
+          refetchSchools={refetchSchools} 
+        />
+      )}
+      {page === 'priority' && (
+        <PriorityScreen 
+          setPage={setPage} 
+          setSelectedSchool={setSelectedSchool} 
+          schools={schools} 
+          loading={schoolsLoading} 
+          error={schoolsError} 
+          refetch={refetchSchools} 
+        />
+      )}
+      {page === 'school-detail' && selectedSchool && (
+        <SchoolDetailScreen 
+          school={selectedSchool} 
+          setPage={setPage} 
+          onAssessmentComplete={refetchSchools} 
+        />
+      )}
       {page === 'interventions' && <InterventionsScreen />}
     </div>
   );
