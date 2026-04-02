@@ -7,7 +7,8 @@ import {
   fetchSchoolTrend, 
   fetchInterventions, 
   fetchDistrictKpis,
-  addIntervention
+  addIntervention,
+  updateInterventionStatus
 } from './data/api';
 import { LoadingSpinner } from './components/LoadingSpinner';
 import { ErrorBanner } from './components/ErrorBanner';
@@ -386,6 +387,15 @@ const InterventionsScreen = ({ schools }) => {
   const { data: interventions, loading, error, refetch } = useAsyncData(fetchInterventions);
   const [isLogging, setIsLogging] = useState(false);
 
+  const handleStatusChange = async (id, newStatus) => {
+    try {
+      await updateInterventionStatus(id, newStatus);
+      refetch();
+    } catch (err) {
+      alert("Failed to update status");
+    }
+  };
+
   if (loading) return <div style={{ padding: 40 }}><LoadingSpinner text="Fetching log..." /></div>;
   if (error) return <div style={{ padding: 40 }}><ErrorBanner error={error} onRetry={refetch} /></div>;
 
@@ -426,7 +436,19 @@ const InterventionsScreen = ({ schools }) => {
                 <td style={{ padding: '16px 24px', color: C.text, fontSize: 14 }}>{i.actionTaken || i.outcome || '—'}</td>
                 <td style={{ padding: '16px 24px', color: C.muted, fontSize: 13, fontFamily: S.mono }}>{i.date}</td>
                 <td style={{ padding: '16px 24px' }}>
-                  <span style={{ background: i.status === 'success' ? C.green + '22' : C.yellow + '22', color: i.status === 'success' ? C.green : C.yellow, padding: '4px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700 }}>{i.status.toUpperCase()}</span>
+                  <select 
+                    value={i.status} 
+                    onChange={e => handleStatusChange(i._id, e.target.value)}
+                    style={{
+                      background: i.status === 'success' ? C.green + '22' : (i.status === 'pending' ? C.yellow + '22' : C.red + '22'),
+                      color: i.status === 'success' ? C.green : (i.status === 'pending' ? C.yellow : C.red),
+                      padding: '4px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700, border: 'none', outline: 'none', cursor: 'pointer', textTransform: 'uppercase', appearance: 'none', textAlign: 'center'
+                    }}
+                  >
+                    <option value="pending">PENDING</option>
+                    <option value="success">SUCCESS</option>
+                    <option value="failed">FAILED</option>
+                  </select>
                 </td>
               </tr>
             ))}
@@ -526,20 +548,20 @@ const InterventionModal = ({ school, schools, onComplete, onCancel }) => {
     const s = school || schools.find(sch => sch.id === parseInt(selectedId));
     if (s) {
       if (s.reading < 35) {
-        setIssue(`Critical Reading Deficit (${s.reading}%)`);
-        setAction('Standard V Reading Intensive Workshop (12-Week)');
+        setIssue(`Critical Reading Deficit (${s.reading}%) in ${classStd}`);
+        setAction(`${classStd} Reading Intensive Workshop (12-Week) for ${s.name} based on ${s.reading}% baseline.`);
       } else if (s.arithmetic < 30) {
-        setIssue(`Critical Arithmetic Stagnation (${s.arithmetic}%)`);
-        setAction('Math Competency Bootcamp & Teacher Training');
+        setIssue(`Critical Arithmetic Stagnation (${s.arithmetic}%) in ${classStd}`);
+        setAction(`${classStd} Math Competency Bootcamp & Teacher Training for ${s.name} based on ${s.arithmetic}% baseline.`);
       } else if (s.risk === 'critical') {
-        setIssue('Generalized Learning Poverty');
-        setAction('DEO Emergency Inspection & Infrastructure Support');
+        setIssue(`Generalized Learning Poverty in ${classStd}`);
+        setAction(`DEO Emergency Inspection & Infrastructure Support for ${classStd}`);
       } else {
-        setIssue('Marginal Performance Gap');
-        setAction('Bi-Weekly Monitoring & Progress Kits');
+        setIssue(`Marginal Performance Gap in ${classStd}`);
+        setAction(`${classStd} Bi-Weekly Monitoring & Progress Kits`);
       }
     }
-  }, [selectedId, school, schools]);
+  }, [selectedId, school, schools, classStd]);
 
   const handleSave = async () => {
     const finalAction = manualAction.trim() ? manualAction : action;
