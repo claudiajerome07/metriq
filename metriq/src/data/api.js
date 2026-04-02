@@ -62,3 +62,13 @@ export async function fetchAllAssessments() {
   if (!response.ok) throw new Error("Failed to fetch all assessments");
   return response.json();
 }
+
+export async function updateInterventionStatus(id, status) {
+  const response = await fetch(`${BASE_URL}/interventions/${id}/status`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status })
+  });
+  if (!response.ok) throw new Error("Failed to update status");
+  return response.json();
+}

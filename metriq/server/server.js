@@ -127,8 +127,8 @@ app.post('/api/assessments', async (req, res) => {
     const avgScore = (req.body.readingScore + req.body.arithmeticScore) / 2;
     let newRisk = 'recovering';
     if (avgScore < 30) newRisk = 'critical';
-    else if (avgScore < 40) newRisk = 'at-risk';
-    else if (avgScore < 55) newRisk = 'stagnant';
+    else if (avgScore < 38) newRisk = 'at-risk';
+    else if (avgScore < 52) newRisk = 'stagnant';
 
     await School.findOneAndUpdate(
       { id: req.body.schoolId },
@@ -140,6 +140,25 @@ app.post('/api/assessments', async (req, res) => {
     );
     
     res.status(201).json({ assessment: newAssessment, updatedRisk: newRisk });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- UTILITY: Repair school risk levels based on current scores ---
+app.post('/api/schools/repair-risk', async (req, res) => {
+  try {
+    const schools = await School.find();
+    const updates = await Promise.all(schools.map(async (s) => {
+      const avg = (s.reading + s.arithmetic) / 2;
+      let risk = 'recovering';
+      if (avg < 30) risk = 'critical';
+      else if (avg < 38) risk = 'at-risk';
+      else if (avg < 52) risk = 'stagnant';
+      await School.findByIdAndUpdate(s._id, { risk });
+      return { name: s.name, avg: avg.toFixed(1), risk };
+    }));
+    res.json({ message: 'Risk levels repaired', schools: updates });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -167,6 +186,19 @@ app.post('/api/interventions', async (req, res) => {
     );
     
     res.status(201).json(newLog);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.patch('/api/interventions/:id/status', async (req, res) => {
+  try {
+    const updated = await Intervention.findByIdAndUpdate(
+      req.params.id,
+      { status: req.body.status },
+      { new: true }
+    );
+    res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
